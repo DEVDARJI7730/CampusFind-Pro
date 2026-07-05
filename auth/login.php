@@ -182,7 +182,13 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                     </div>
 
                     <a href="<?php echo $google_login_url; ?>" class="btn btn-premium-outline w-100 py-3 mb-3 d-flex align-items-center justify-content-center gap-2" style="background: rgba(255, 255, 255, 0.4); border-color: var(--border-color); color: var(--text-primary);">
-                        <i class="fa-brands fa-google text-danger fs-5"></i> Sign In with Google
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.5 24c0-1.61-.15-3.16-.45-4.69H24v8.89h12.62c-.54 2.87-2.17 5.31-4.61 6.94l7.19 5.57c4.21-3.88 6.5-9.6 6.5-16.72z"/>
+                            <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.19-5.57c-2 1.34-4.55 2.13-7.7 2.13-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        </svg>
+                        Sign In with Google
                     </a>
 
                     <div class="text-center mt-3">
