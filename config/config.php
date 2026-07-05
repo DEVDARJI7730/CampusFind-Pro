@@ -4,59 +4,46 @@
  * Contains environment constants, database credentials, and path definitions.
  */
 
-// ==========================================
 // Core App Settings
-// ==========================================
 define('APP_NAME', 'CampusFind Pro');
 define('APP_VERSION', '1.0.0');
 
-// ==========================================
-// Base URL
-// ==========================================
-$protocol = (
-    (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
-    (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)
-) ? "https://" : "http://";
-
+// Base URL (Dynamically detects subdirectories like XAMPP /CampusFind-Pro/ or cloud root domains)
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
 $domainName = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+$dirName = dirname($scriptName);
+$subDir = ($dirName === '/' || $dirName === '\\') ? '' : rtrim(str_replace('\\', '/', $dirName), '/');
+if (preg_match('#/(auth|dashboard|lost|found|claims|notifications|admin)$#', $subDir)) {
+    $subDir = dirname($subDir);
+}
+$subDir = ($subDir === '/' || $subDir === '\\') ? '' : $subDir;
+define('SITE_URL', $protocol . $domainName . $subDir);
 
-define('SITE_URL', $protocol . $domainName . '/CampusFind-Pro');
-
-// ==========================================
 // Path Definitions
-// ==========================================
 define('ROOT_PATH', dirname(__DIR__));
 define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 define('UPLOAD_URL', SITE_URL . '/uploads');
 
-// ==========================================
-// Database Credentials
-// ==========================================
-define('DB_HOST', 'localhost');
-define('DB_PORT', '3306');
-define('DB_NAME', 'campusfind_pro');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+// Database Credentials (support environment variables for cloud deployments like Render)
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_PORT', getenv('DB_PORT') ?: '3306');
+define('DB_NAME', getenv('DB_NAME') ?: 'campusfind_pro');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 define('DB_CHARSET', 'utf8mb4');
 
-// ==========================================
-// Security
-// ==========================================
+// Security Settings
 define('CSRF_TOKEN_KEY', 'cf_csrf_token');
 
-// ==========================================
-// Image Upload Settings
-// ==========================================
+// Google OAuth Credentials
+define('GOOGLE_CLIENT_ID', getenv('GOOGLE_CLIENT_ID') ?: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com');
+define('GOOGLE_CLIENT_SECRET', getenv('GOOGLE_CLIENT_SECRET') ?: 'YOUR_GOOGLE_CLIENT_SECRET');
+define('GOOGLE_REDIRECT_URI', SITE_URL . '/auth/google-callback.php');
+
+// Image Configuration
 define('MAX_IMAGE_SIZE', 5 * 1024 * 1024); // 5 MB
+$ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
-$ALLOWED_IMAGE_TYPES = [
-    'image/jpeg',
-    'image/png',
-    'image/jpg',
-    'image/webp'
-];
-
-// ==========================================
-// Load Helper Functions
-// ==========================================
+// Load helper functions in all files if needed
 require_once ROOT_PATH . '/includes/helpers.php';

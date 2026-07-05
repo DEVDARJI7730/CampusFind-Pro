@@ -108,6 +108,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Generate Google Login URL
+$oauth_state = bin2hex(random_bytes(16));
+$_SESSION['oauth_state'] = $oauth_state;
+$google_login_url = "https://accounts.google.com/o/oauth2/v2/auth?" . http_build_query([
+    'client_id' => GOOGLE_CLIENT_ID,
+    'redirect_uri' => GOOGLE_REDIRECT_URI,
+    'response_type' => 'code',
+    'scope' => 'openid email profile',
+    'state' => $oauth_state
+]);
+
 $page_title = 'Sign In';
 require_once dirname(__DIR__) . '/includes/navbar.php';
 ?>
@@ -163,6 +174,16 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
 
                     <!-- Submit Button -->
                     <button type="submit" class="btn btn-premium w-100 py-3 mb-3"><i class="fa-solid fa-arrow-right-to-bracket me-2"></i>Sign In</button>
+
+                    <div class="d-flex align-items-center my-3">
+                        <hr class="flex-grow-1 border-color">
+                        <span class="px-2 text-muted" style="font-size: 0.8rem;">or</span>
+                        <hr class="flex-grow-1 border-color">
+                    </div>
+
+                    <a href="<?php echo $google_login_url; ?>" class="btn btn-premium-outline w-100 py-3 mb-3 d-flex align-items-center justify-content-center gap-2" style="background: rgba(255, 255, 255, 0.4); border-color: var(--border-color); color: var(--text-primary);">
+                        <i class="fa-brands fa-google text-danger fs-5"></i> Sign In with Google
+                    </a>
 
                     <div class="text-center mt-3">
                         <span class="text-secondary" style="font-size: 0.9rem;">New student? <a href="register.php" class="fw-600">Register account</a></span>

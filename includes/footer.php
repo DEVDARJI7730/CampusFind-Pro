@@ -18,9 +18,9 @@
                     The premium Lost & Found Management Software designed for academic institutions to connect students, streamline claim processing, and safeguard campus belongings.
                 </p>
                 <div class="d-flex gap-3">
-                    <a href="https://x.com/DevDarji80404" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="Twitter"><i class="fa-brands fa-twitter"></i></a>
-                    <a href="https://github.com/DEVDARJI7730" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
-                    <a href="https://www.linkedin.com/in/dev-darji-65836b318/" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+                    <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="Twitter"><i class="fa-brands fa-twitter"></i></a>
+                    <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+                    <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
                 </div>
             </div>
 
@@ -50,13 +50,13 @@
             <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
                 <h6 class="font-heading fw-700 text-uppercase text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 1px;">Campus Office</h6>
                 <p class="text-secondary mb-2" style="font-size: 0.9rem;">
-                    <i class="fa-solid fa-map-location-dot me-2 text-primary"></i> Gls University, New Building
+                    <i class="fa-solid fa-map-location-dot me-2 text-primary"></i> Main Security Operations, Gate 4
                 </p>
                 <p class="text-secondary mb-2" style="font-size: 0.9rem;">
-                    <i class="fa-solid fa-envelope me-2 text-primary"></i> darjidev2504@gmail.com
+                    <i class="fa-solid fa-envelope me-2 text-primary"></i> support@campusfindpro.edu
                 </p>
                 <p class="text-secondary" style="font-size: 0.9rem;">
-                    <i class="fa-solid fa-phone me-2 text-primary"></i> +91 9510473018
+                    <i class="fa-solid fa-phone me-2 text-primary"></i> +1 (555) 019-2834
                 </p>
             </div>
         </div>
