@@ -155,7 +155,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                         <?php foreach ($users as $user): ?>
                             <tr>
                                 <td>
-                                    <img src="<?php echo SITE_URL; ?>/uploads/<?php echo sanitize($user['avatar']); ?>" class="rounded-circle border" style="width: 40px; height: 40px; object-fit: cover;" alt="Avatar">
+                                    <img src="<?php echo getAvatarUrl($user['avatar'] ?? ''); ?>" class="rounded-circle border" style="width: 40px; height: 40px; object-fit: cover;" alt="Avatar">
                                 </td>
                                 <td class="fw-700 text-primary"><?php echo sanitize($user['student_id'] ?: 'N/A'); ?></td>
                                 <td class="fw-600"><?php echo sanitize($user['name']); ?></td>

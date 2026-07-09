@@ -17,6 +17,19 @@ function sanitize(?string $data): string {
 }
 
 /**
+ * Get dynamic URL for user profile picture (supports both local uploads and remote Google OAuth URLs)
+ */
+function getAvatarUrl(?string $avatar): string {
+    if (empty($avatar)) {
+        return SITE_URL . '/uploads/default-avatar.png';
+    }
+    if (strpos($avatar, 'http://') === 0 || strpos($avatar, 'https://') === 0) {
+        return $avatar;
+    }
+    return SITE_URL . '/uploads/' . $avatar;
+}
+
+/**
  * Generate CSRF Token and store in session
  */
 function generateCSRFToken(): string {

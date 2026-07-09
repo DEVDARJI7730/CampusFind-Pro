@@ -100,18 +100,8 @@ try {
             logActivity($userIdStr, 'OAUTH_LINK', 'Linked Google OAuth credentials to existing profile.');
         } else {
             // Register new student automatically via Google OAuth details
-            // Save/Download Google Profile Image locally
-            $local_avatar = 'default-avatar.png';
-            if (!empty($picture_url)) {
-                $avatar_data = @file_get_contents($picture_url);
-                if ($avatar_data !== false) {
-                    $local_avatar = 'avatar-google-' . time() . '-' . rand(1000, 9999) . '.jpg';
-                    if (!is_dir(UPLOAD_PATH)) {
-                        mkdir(UPLOAD_PATH, 0777, true);
-                    }
-                    file_put_contents(UPLOAD_PATH . '/' . $local_avatar, $avatar_data);
-                }
-            }
+            // Use remote Google Profile image URL directly, fall back to default-avatar.png
+            $local_avatar = !empty($picture_url) ? $picture_url : 'default-avatar.png';
 
             // Generate random secure password (never used directly, but satisfies constraint)
             $random_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);

@@ -97,7 +97,7 @@ $csrf_token = generateCSRFToken();
                     <!-- User Profile Dropdown -->
                     <div class="dropdown">
                         <a class="d-flex align-items-center gap-2 text-decoration-none dropdown-toggle text-secondary" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                            <img src="<?php echo SITE_URL; ?>/uploads/<?php echo $_SESSION['user_avatar'] ?? 'default-avatar.png'; ?>" alt="Profile" class="rounded-circle border border-primary border-2" style="width: 36px; height: 36px; object-fit: cover;">
+                            <img src="<?php echo getAvatarUrl($_SESSION['user_avatar'] ?? ''); ?>" alt="Profile" class="rounded-circle border border-primary border-2" style="width: 36px; height: 36px; object-fit: cover;">
                             <span class="d-none d-md-inline fw-600 text-truncate" style="max-width: 100px;">
                                 <?php echo sanitize($_SESSION['user_name']); ?>
                             </span>

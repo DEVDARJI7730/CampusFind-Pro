@@ -173,7 +173,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
         <div class="col-lg-3 col-md-4" data-aos="fade-right">
             <div class="glass-panel p-4 text-center">
                 <h5 class="font-heading fw-700 mb-4">Profile Photo</h5>
-                <img src="<?php echo SITE_URL; ?>/uploads/<?php echo sanitize($user['avatar']); ?>" alt="Profile avatar" class="rounded-circle border border-primary border-3 mb-4 img-fluid" style="width: 150px; height: 150px; object-fit: cover;">
+                <img src="<?php echo getAvatarUrl($user['avatar'] ?? ''); ?>" alt="Profile avatar" class="rounded-circle border border-primary border-3 mb-4 img-fluid" style="width: 150px; height: 150px; object-fit: cover;">
                 
                 <form action="profile.php" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
