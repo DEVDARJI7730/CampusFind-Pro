@@ -133,6 +133,14 @@ try {
         }
     }
 
+    // Auto-update or repair user avatar to live remote URL if they previously registered with a local/broken file
+    if ($user && !empty($picture_url)) {
+        if (empty($user['avatar']) || $user['avatar'] === 'default-avatar.png' || (strpos($user['avatar'], 'avatar-google-') === 0 && strpos($user['avatar'], 'http') === false)) {
+            $db->update('users', ['_id' => $user['_id']], ['avatar' => $picture_url]);
+            $user['avatar'] = $picture_url;
+        }
+    }
+
     // 5. Establish Session & Log In User
     if ($user['status'] === 'suspended') {
         $_SESSION['success_msg'] = 'Your account has been suspended by administration.';
