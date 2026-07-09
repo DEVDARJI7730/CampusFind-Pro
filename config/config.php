@@ -35,7 +35,10 @@ define('APP_VERSION', '1.0.0');
 if (php_sapi_name() === 'cli') {
     define('SITE_URL', 'http://localhost/CampusFind-Pro');
 } else {
-    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443) ? "https://" : "http://";
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' 
+                 || ($_SERVER['SERVER_PORT'] ?? 80) == 443 
+                 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) 
+                ? "https://" : "http://";
     $domainName = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
     $dirName = dirname($scriptName);
