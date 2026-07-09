@@ -10,7 +10,7 @@ require_once dirname(__DIR__) . '/config/database.php';
 requireRole('student');
 
 $user_id = $_SESSION['user_id'];
-$item_id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+$item_id = trim($_GET['id'] ?? '');
 $error = '';
 $success = '';
 
@@ -19,16 +19,13 @@ if (!$item_id) {
 }
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
     // Fetch categories
-    $cat_stmt = $db->query("SELECT * FROM categories ORDER BY name ASC");
-    $categories = $cat_stmt->fetchAll();
+    $categories = $db->find('categories', [], ['sort' => ['name' => 1]]);
 
     // Fetch item details (must belong to this user)
-    $item_stmt = $db->prepare("SELECT * FROM found_items WHERE id = :id AND user_id = :uid LIMIT 1");
-    $item_stmt->execute([':id' => $item_id, ':uid' => $user_id]);
-    $item = $item_stmt->fetch();
+    $item = $db->findOne('found_items', ['_id' => toObjectId($item_id), 'user_id' => toObjectId($user_id)]);
 
     if (!$item) {
         redirect('dashboard/index.php');
@@ -41,7 +38,7 @@ try {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $category_id = filter_var($_POST['category_id'] ?? '', FILTER_VALIDATE_INT);
+    $category_id = trim($_POST['category_id'] ?? '');
     $location = trim($_POST['location'] ?? '');
     $found_date = $_POST['found_date'] ?? '';
     $status = $_POST['status'] ?? 'found';
@@ -50,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate Input
     if (!validateCSRFToken($csrf)) {
         $error = 'Invalid security token.';
-    } elseif (empty($title) || empty($description) || !$category_id || empty($location) || empty($found_date)) {
+    } elseif (empty($title) || empty($description) || empty($category_id) || empty($location) || empty($found_date)) {
         $error = 'Please fill in all required fields.';
     } elseif (!in_array($status, ['found', 'claimed', 'returned'])) {
         $error = 'Invalid status value.';
@@ -98,21 +95,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($upload_ok) {
             try {
-                $update_stmt = $db->prepare("
-                    UPDATE found_items 
-                    SET category_id = :cat_id, title = :title, description = :descr, location = :loc, found_date = :fdate, image = :img, status = :status
-                    WHERE id = :id AND user_id = :uid
-                ");
-                $update_stmt->execute([
-                    ':cat_id' => $category_id,
-                    ':title' => $title,
-                    ':descr' => $description,
-                    ':loc' => $location,
-                    ':fdate' => $found_date,
-                    ':img' => $image_name,
-                    ':status' => $status,
-                    ':id' => $item_id,
-                    ':uid' => $user_id
+                $db->update('found_items', ['_id' => toObjectId($item_id), 'user_id' => toObjectId($user_id)], [
+                    'category_id' => toObjectId($category_id),
+                    'title' => $title,
+                    'description' => $description,
+                    'location' => $location,
+                    'found_date' => $found_date,
+                    'image' => $image_name,
+                    'status' => $status,
+                    'updated_at' => date('Y-m-d H:i:s')
                 ]);
 
                 logActivity($user_id, 'EDIT_FOUND_ITEM', 'Updated found item: ' . $title);
@@ -147,7 +138,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                     <div class="alert alert-danger"><?php echo $error; ?></div>
                 <?php endif; ?>
 
-                <form action="edit.php?id=<?php echo $item['id']; ?>" method="POST" enctype="multipart/form-data" onsubmit="return validateForm(this)">
+                <form action="edit.php?id=<?php echo $item['_id']; ?>" method="POST" enctype="multipart/form-data" onsubmit="return validateForm(this)">
                     <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
 
                     <div class="row g-3">
@@ -175,7 +166,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                             <select name="category_id" class="form-select form-premium-control" required>
                                 <option value="">Select Category</option>
                                 <?php foreach ($categories as $cat): ?>
-                                    <option value="<?php echo $cat['id']; ?>" <?php echo $item['category_id'] == $cat['id'] ? 'selected' : ''; ?>>
+                                    <option value="<?php echo $cat['_id']; ?>" <?php echo $item['category_id'] == $cat['_id'] ? 'selected' : ''; ?>>
                                         <?php echo sanitize($cat['name']); ?>
                                     </option>
                                 <?php endforeach; ?>

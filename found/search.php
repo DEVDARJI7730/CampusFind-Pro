@@ -21,66 +21,60 @@ $location = trim($_GET['location'] ?? '');
 $date = trim($_GET['date'] ?? '');
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
     // Fetch categories for search filter dropdown
-    $cat_stmt = $db->query("SELECT * FROM categories ORDER BY name ASC");
-    $categories = $cat_stmt->fetchAll();
-
-    // 3. Construct Dynamic Query
-    $sql = "SELECT f.*, c.name as category_name 
-            FROM found_items f 
-            JOIN categories c ON f.category_id = c.id 
-            WHERE f.status = 'found'";
-    $count_sql = "SELECT COUNT(*) as total 
-                  FROM found_items f 
-                  JOIN categories c ON f.category_id = c.id 
-                  WHERE f.status = 'found'";
+    $categories = $db->find('categories', [], ['sort' => ['name' => 1]]);
     
-    $params = [];
+    $categoryMap = [];
+    foreach ($categories as $cat) {
+        $categoryMap[(string)$cat['_id']] = $cat['name'];
+    }
+
+    // 3. Construct MongoDB Filter
+    $filter = ['status' => 'found'];
 
     if (!empty($query)) {
-        $sql .= " AND (f.title LIKE :query OR f.description LIKE :query)";
-        $count_sql .= " AND (f.title LIKE :query OR f.description LIKE :query)";
-        $params[':query'] = '%' . $query . '%';
+        $filter['$or'] = [
+            ['title' => ['$regex' => $query, '$options' => 'i']],
+            ['description' => ['$regex' => $query, '$options' => 'i']]
+        ];
     }
 
     if (!empty($category)) {
-        $sql .= " AND c.name = :category";
-        $count_sql .= " AND c.name = :category";
-        $params[':category'] = $category;
+        $catDoc = $db->findOne('categories', ['name' => $category]);
+        if ($catDoc) {
+            $filter['category_id'] = toObjectId($catDoc['_id']);
+        } else {
+            $filter['category_id'] = new MongoDB\BSON\ObjectId(); // empty match
+        }
     }
 
     if (!empty($location)) {
-        $sql .= " AND f.location LIKE :location";
-        $count_sql .= " AND f.location LIKE :location";
-        $params[':location'] = '%' . $location . '%';
+        $filter['location'] = ['$regex' => $location, '$options' => 'i'];
     }
 
     if (!empty($date)) {
-        $sql .= " AND f.found_date = :date";
-        $count_sql .= " AND f.found_date = :date";
-        $params[':date'] = $date;
+        $filter['found_date'] = $date;
     }
 
-    // 4. Order and Limit
-    $sql .= " ORDER BY f.created_at DESC LIMIT :limit OFFSET :offset";
-    
-    // 5. Fetch count
-    $stmt_count = $db->prepare($count_sql);
-    $stmt_count->execute($params);
-    $total_items = $stmt_count->fetch()['total'] ?? 0;
+    // 4. Fetch Count
+    $total_items = $db->count('found_items', $filter);
     $total_pages = ceil($total_items / $limit);
 
-    // 6. Fetch items
-    $stmt = $db->prepare($sql);
-    $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-    foreach ($params as $key => $val) {
-        $stmt->bindValue($key, $val);
+    // 5. Fetch items
+    $options = [
+        'sort' => ['created_at' => -1],
+        'limit' => $limit,
+        'skip' => $offset
+    ];
+    $raw_items = $db->find('found_items', $filter, $options);
+    
+    $items = [];
+    foreach ($raw_items as $item) {
+        $item['category_name'] = $categoryMap[(string)$item['category_id']] ?? 'Others';
+        $items[] = $item;
     }
-    $stmt->execute();
-    $items = $stmt->fetchAll();
 
 } catch (Exception $e) {
     error_log("Search Found page query fail: " . $e->getMessage());
@@ -167,7 +161,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                         <div><i class="fa-solid fa-location-dot me-2 text-success"></i><?php echo sanitize($item['location']); ?></div>
                                         <div><i class="fa-regular fa-calendar me-2 text-success"></i>Found: <?php echo formatDate($item['found_date']); ?></div>
                                     </div>
-                                    <a href="view.php?id=<?php echo $item['id']; ?>" class="btn btn-premium w-100">View details & claim</a>
+                                    <a href="view.php?id=<?php echo $item['_id']; ?>" class="btn btn-premium w-100">View details & claim</a>
                                 </div>
                             </div>
                         </div>

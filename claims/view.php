@@ -10,44 +10,42 @@ require_once dirname(__DIR__) . '/config/database.php';
 requireRole('student');
 
 $user_id = $_SESSION['user_id'];
-$claim_id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+$claim_id = trim($_GET['id'] ?? '');
 
 if (!$claim_id) {
     redirect('dashboard/index.php');
 }
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
-    // Fetch claim details joining claimer details
-    $stmt = $db->prepare("
-        SELECT c.*, u.name as claimer_name, u.email as claimer_email, u.student_id as claimer_sid
-        FROM claims c
-        JOIN users u ON c.claimer_id = u.id
-        WHERE c.id = :id LIMIT 1
-    ");
-    $stmt->execute([':id' => $claim_id]);
-    $claim = $stmt->fetch();
+    // Fetch claim details
+    $claim = $db->findOne('claims', ['_id' => toObjectId($claim_id)]);
 
     if (!$claim) {
         redirect('dashboard/index.php');
     }
 
+    // Fetch claimer details
+    $claimer = $db->findOne('users', ['_id' => toObjectId($claim['claimer_id'])]);
+    $claim['claimer_name'] = $claimer['name'] ?? 'Unknown';
+    $claim['claimer_email'] = $claimer['email'] ?? '';
+    $claim['claimer_sid'] = $claimer['student_id'] ?? '';
+
     // Fetch related item details based on item_type
-    $item = null;
     if ($claim['item_type'] === 'found') {
-        $item_stmt = $db->prepare("SELECT f.*, c.name as category_name FROM found_items f JOIN categories c ON f.category_id = c.id WHERE f.id = :iid LIMIT 1");
-        $item_stmt->execute([':iid' => $claim['item_id']]);
-        $item = $item_stmt->fetch();
+        $item = $db->findOne('found_items', ['_id' => toObjectId($claim['item_id'])]);
     } else {
-        $item_stmt = $db->prepare("SELECT l.*, c.name as category_name FROM lost_items l JOIN categories c ON l.category_id = c.id WHERE l.id = :iid LIMIT 1");
-        $item_stmt->execute([':iid' => $claim['item_id']]);
-        $item = $item_stmt->fetch();
+        $item = $db->findOne('lost_items', ['_id' => toObjectId($claim['item_id'])]);
     }
 
     if (!$item) {
         redirect('dashboard/index.php');
     }
+
+    // Fetch category name
+    $category = $db->findOne('categories', ['_id' => toObjectId($item['category_id'])]);
+    $item['category_name'] = $category['name'] ?? 'Others';
 
     // Authorisation check: current user must be the claimer OR the one who reported the item
     if ($claim['claimer_id'] !== $user_id && $item['user_id'] !== $user_id) {
@@ -99,7 +97,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                 <h6 class="fw-700 m-0"><?php echo sanitize($item['title']); ?></h6>
                                 <span class="badge bg-secondary text-secondary mt-1" style="font-size: 0.75rem;"><?php echo sanitize($item['category_name']); ?></span>
                             </div>
-                            <a href="<?php echo SITE_URL; ?>/<?php echo $claim['item_type']; ?>/view.php?id=<?php echo $item['id']; ?>" class="btn btn-premium-outline btn-sm w-100 mt-3">View Item Details</a>
+                            <a href="<?php echo SITE_URL; ?>/<?php echo $claim['item_type']; ?>/view.php?id=<?php echo $item['_id']; ?>" class="btn btn-premium-outline btn-sm w-100 mt-3">View Item Details</a>
                         </div>
                     </div>
                 </div>

@@ -14,10 +14,9 @@ $error = '';
 $success = '';
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     // Fetch categories
-    $cat_stmt = $db->query("SELECT * FROM categories ORDER BY name ASC");
-    $categories = $cat_stmt->fetchAll();
+    $categories = $db->find('categories', [], ['sort' => ['name' => 1]]);
 } catch (Exception $e) {
     error_log("Report Found categories fetch fail: " . $e->getMessage());
     $categories = [];
@@ -26,7 +25,7 @@ try {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $category_id = filter_var($_POST['category_id'] ?? '', FILTER_VALIDATE_INT);
+    $category_id = trim($_POST['category_id'] ?? '');
     $location = trim($_POST['location'] ?? '');
     $found_date = $_POST['found_date'] ?? '';
     $csrf = $_POST['csrf_token'] ?? '';
@@ -34,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate Input
     if (!validateCSRFToken($csrf)) {
         $error = 'Invalid security token.';
-    } elseif (empty($title) || empty($description) || !$category_id || empty($location) || empty($found_date)) {
+    } elseif (empty($title) || empty($description) || empty($category_id) || empty($location) || empty($found_date)) {
         $error = 'All fields except Image are required.';
     } else {
         $image_name = null;
@@ -78,20 +77,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $qr_token = generateQRToken();
                 
-                $insert_stmt = $db->prepare("
-                    INSERT INTO found_items (user_id, category_id, title, description, location, found_date, image, status, qr_token) 
-                    VALUES (:uid, :cat_id, :title, :descr, :loc, :fdate, :img, 'found', :qr)
-                ");
-                $insert_stmt->execute([
-                    ':uid' => $user_id,
-                    ':cat_id' => $category_id,
-                    ':title' => $title,
-                    ':descr' => $description,
-                    ':loc' => $location,
-                    ':fdate' => $found_date,
-                    ':img' => $image_name,
-                    ':qr' => $qr_token
-                ]);
+                $item_document = [
+                    'user_id' => toObjectId($user_id),
+                    'category_id' => toObjectId($category_id),
+                    'title' => $title,
+                    'description' => $description,
+                    'location' => $location,
+                    'found_date' => $found_date,
+                    'image' => $image_name,
+                    'status' => 'found',
+                    'qr_token' => $qr_token,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ];
+                $db->insert('found_items', $item_document);
 
                 // Log Activity
                 logActivity($user_id, 'REPORT_FOUND_ITEM', 'Reported found item: ' . $title);
@@ -144,7 +143,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                             <select name="category_id" class="form-select form-premium-control" required>
                                 <option value="">Select Category</option>
                                 <?php foreach ($categories as $cat): ?>
-                                    <option value="<?php echo $cat['id']; ?>"><?php echo sanitize($cat['name']); ?></option>
+                                    <option value="<?php echo $cat['_id']; ?>"><?php echo sanitize($cat['name']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>

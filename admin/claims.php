@@ -20,32 +20,30 @@ unset($_SESSION['admin_msg'], $_SESSION['admin_msg_class']);
 $status_filter = $_GET['status'] ?? 'pending';
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // Fetch claims according to status filter
-    $stmt = $db->prepare("
-        SELECT c.*, u.name as claimer_name, u.email as claimer_email, u.student_id as claimer_sid,
-        CASE 
-            WHEN c.item_type = 'found' THEN f.title 
-            WHEN c.item_type = 'lost' THEN l.title 
-        END as item_title,
-        CASE 
-            WHEN c.item_type = 'found' THEN f.location 
-            WHEN c.item_type = 'lost' THEN l.location 
-        END as item_location,
-        CASE 
-            WHEN c.item_type = 'found' THEN f.image 
-            WHEN c.item_type = 'lost' THEN l.image 
-        END as item_image
-        FROM claims c
-        JOIN users u ON c.claimer_id = u.id
-        LEFT JOIN found_items f ON c.item_id = f.id AND c.item_type = 'found'
-        LEFT JOIN lost_items l ON c.item_id = l.id AND c.item_type = 'lost'
-        WHERE c.status = :status
-        ORDER BY c.created_at DESC
-    ");
-    $stmt->execute([':status' => $status_filter]);
-    $claims = $stmt->fetchAll();
+    $raw_claims = $db->find('claims', ['status' => $status_filter], ['sort' => ['created_at' => -1]]);
+    $claims = [];
+    foreach ($raw_claims as $clm) {
+        $claimer = $db->findOne('users', ['_id' => toObjectId($clm['claimer_id'])]);
+        $clm['claimer_name'] = $claimer['name'] ?? 'Unknown';
+        $clm['claimer_email'] = $claimer['email'] ?? '';
+        $clm['claimer_sid'] = $claimer['student_id'] ?? '';
+
+        $item = null;
+        if ($clm['item_type'] === 'found') {
+            $item = $db->findOne('found_items', ['_id' => toObjectId($clm['item_id'])]);
+        } else {
+            $item = $db->findOne('lost_items', ['_id' => toObjectId($clm['item_id'])]);
+        }
+
+        $clm['item_title'] = $item['title'] ?? 'Unknown';
+        $clm['item_location'] = $item['location'] ?? 'Unknown';
+        $clm['item_image'] = $item['image'] ?? 'default-item.png';
+
+        $claims[] = $clm;
+    }
 
 } catch (Exception $e) {
     error_log("Admin claims console fetch fail: " . $e->getMessage());
@@ -149,14 +147,14 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
 
                             <!-- Review Button Trigger -->
                             <div class="col-lg-3 col-md-12 text-lg-end">
-                                <button class="btn btn-premium w-100 py-3" type="button" data-bs-toggle="collapse" data-bs-target="#claimReview-<?php echo $clm['id']; ?>">
+                                <button class="btn btn-premium w-100 py-3" type="button" data-bs-toggle="collapse" data-bs-target="#claimReview-<?php echo $clm['_id']; ?>">
                                     <i class="fa-solid fa-clipboard-check me-2"></i>Review Proof Detail
                                 </button>
                             </div>
                         </div>
 
                         <!-- Collapse review options panel -->
-                        <div class="collapse mt-4 pt-4 border-top border-color" id="claimReview-<?php echo $clm['id']; ?>">
+                        <div class="collapse mt-4 pt-4 border-top border-color" id="claimReview-<?php echo $clm['_id']; ?>">
                             <div class="row g-4">
                                 <!-- Proof explanation -->
                                 <div class="col-md-7">
@@ -179,7 +177,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                         <?php if ($clm['status'] === 'pending'): ?>
                                             <form action="<?php echo SITE_URL; ?>/claims/process.php" method="POST">
                                                 <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                                                <input type="hidden" name="claim_id" value="<?php echo $clm['id']; ?>">
+                                                <input type="hidden" name="claim_id" value="<?php echo $clm['_id']; ?>">
 
                                                 <div class="mb-3">
                                                     <label class="form-label text-secondary fw-500" style="font-size: 0.85rem;">Decision Remarks / Pick Up instructions</label>

@@ -20,43 +20,49 @@ $approved_claims = 0;
 $rejected_claims = 0;
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
     // Stats query
-    $total_students = $db->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn();
-    $total_lost = $db->query("SELECT COUNT(*) FROM lost_items")->fetchColumn();
-    $total_found = $db->query("SELECT COUNT(*) FROM found_items")->fetchColumn();
+    $total_students = $db->count('users', ['role' => 'student']);
+    $total_lost = $db->count('lost_items');
+    $total_found = $db->count('found_items');
     
-    $pending_claims = $db->query("SELECT COUNT(*) FROM claims WHERE status = 'pending'")->fetchColumn();
-    $approved_claims = $db->query("SELECT COUNT(*) FROM claims WHERE status = 'approved'")->fetchColumn();
-    $rejected_claims = $db->query("SELECT COUNT(*) FROM claims WHERE status = 'rejected'")->fetchColumn();
+    $pending_claims = $db->count('claims', ['status' => 'pending']);
+    $approved_claims = $db->count('claims', ['status' => 'approved']);
+    $rejected_claims = $db->count('claims', ['status' => 'rejected']);
 
     // Fetch recent pending claims
-    $recent_claims_stmt = $db->query("
-        SELECT c.*, u.name as claimer_name, u.email as claimer_email,
-        CASE 
-            WHEN c.item_type = 'found' THEN f.title 
-            WHEN c.item_type = 'lost' THEN l.title 
-        END as item_title
-        FROM claims c
-        JOIN users u ON c.claimer_id = u.id
-        LEFT JOIN found_items f ON c.item_id = f.id AND c.item_type = 'found'
-        LEFT JOIN lost_items l ON c.item_id = l.id AND c.item_type = 'lost'
-        WHERE c.status = 'pending'
-        ORDER BY c.created_at DESC
-        LIMIT 5
-    ");
-    $recent_claims = $recent_claims_stmt->fetchAll();
+    $raw_claims = $db->find('claims', ['status' => 'pending'], ['sort' => ['created_at' => -1], 'limit' => 5]);
+    $recent_claims = [];
+    foreach ($raw_claims as $claim) {
+        $claimer = $db->findOne('users', ['_id' => toObjectId($claim['claimer_id'])]);
+        $claim['claimer_name'] = $claimer['name'] ?? 'Unknown';
+        $claim['claimer_email'] = $claimer['email'] ?? '';
+        
+        $item_title = 'Unknown Item';
+        if ($claim['item_type'] === 'found') {
+            $item = $db->findOne('found_items', ['_id' => toObjectId($claim['item_id'])]);
+            if ($item) $item_title = $item['title'];
+        } else {
+            $item = $db->findOne('lost_items', ['_id' => toObjectId($claim['item_id'])]);
+            if ($item) $item_title = $item['title'];
+        }
+        $claim['item_title'] = $item_title;
+        $recent_claims[] = $claim;
+    }
 
     // Fetch recent logs
-    $recent_logs_stmt = $db->query("
-        SELECT a.*, u.name as user_name 
-        FROM activity_logs a 
-        LEFT JOIN users u ON a.user_id = u.id 
-        ORDER BY a.created_at DESC 
-        LIMIT 5
-    ");
-    $recent_logs = $recent_logs_stmt->fetchAll();
+    $raw_logs = $db->find('activity_logs', [], ['sort' => ['created_at' => -1], 'limit' => 5]);
+    $recent_logs = [];
+    foreach ($raw_logs as $log) {
+        if (!empty($log['user_id'])) {
+            $user = $db->findOne('users', ['_id' => toObjectId($log['user_id'])]);
+            $log['user_name'] = $user['name'] ?? 'SYSTEM';
+        } else {
+            $log['user_name'] = 'SYSTEM';
+        }
+        $recent_logs[] = $log;
+    }
 
 } catch (Exception $e) {
     error_log("Admin dashboard query failed: " . $e->getMessage());
@@ -203,7 +209,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                         <td class="fw-600"><?php echo sanitize($claim['item_title']); ?></td>
                                         <td><?php echo formatDate($claim['created_at']); ?></td>
                                         <td class="text-end">
-                                            <a href="claims.php?id=<?php echo $claim['id']; ?>" class="btn btn-premium btn-sm px-3 py-1">Review Claim</a>
+                                            <a href="claims.php?id=<?php echo $claim['_id']; ?>" class="btn btn-premium btn-sm px-3 py-1">Review Claim</a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

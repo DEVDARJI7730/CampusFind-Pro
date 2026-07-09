@@ -15,12 +15,12 @@ $msg_class = $_SESSION['admin_msg_class'] ?? 'success';
 unset($_SESSION['admin_msg'], $_SESSION['admin_msg_class']);
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // 1. Process Moderator Actions (Deletes)
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $item_type = $_POST['item_type'] ?? '';
-        $item_id = filter_var($_POST['item_id'] ?? '', FILTER_VALIDATE_INT);
+        $item_id = trim($_POST['item_id'] ?? '');
         $action = $_POST['action'] ?? '';
         $csrf = $_POST['csrf_token'] ?? '';
 
@@ -31,32 +31,28 @@ try {
             if ($action === 'delete') {
                 if ($item_type === 'found') {
                     // Fetch image name
-                    $img_stmt = $db->prepare("SELECT image, title FROM found_items WHERE id = :id LIMIT 1");
-                    $img_stmt->execute([':id' => $item_id]);
-                    $item = $img_stmt->fetch();
+                    $item = $db->findOne('found_items', ['_id' => toObjectId($item_id)]);
                     
                     if ($item) {
                         if (!empty($item['image'])) {
                             $img_path = UPLOAD_PATH . '/' . $item['image'];
                             if (file_exists($img_path)) unlink($img_path);
                         }
-                        $db->prepare("DELETE FROM found_items WHERE id = :id")->execute([':id' => $item_id]);
+                        $db->delete('found_items', ['_id' => toObjectId($item_id)]);
                         logActivity($admin_id, 'MODERATOR_DELETE_FOUND', 'Admin permanently deleted found item: ' . $item['title']);
                         $msg = 'Found item report moderated and removed successfully.';
                         $msg_class = 'success';
                     }
                 } else {
                     // Fetch image name
-                    $img_stmt = $db->prepare("SELECT image, title FROM lost_items WHERE id = :id LIMIT 1");
-                    $img_stmt->execute([':id' => $item_id]);
-                    $item = $img_stmt->fetch();
+                    $item = $db->findOne('lost_items', ['_id' => toObjectId($item_id)]);
                     
                     if ($item) {
                         if (!empty($item['image'])) {
                             $img_path = UPLOAD_PATH . '/' . $item['image'];
                             if (file_exists($img_path)) unlink($img_path);
                         }
-                        $db->prepare("DELETE FROM lost_items WHERE id = :id")->execute([':id' => $item_id]);
+                        $db->delete('lost_items', ['_id' => toObjectId($item_id)]);
                         logActivity($admin_id, 'MODERATOR_DELETE_LOST', 'Admin permanently deleted lost item: ' . $item['title']);
                         $msg = 'Lost item report moderated and removed successfully.';
                         $msg_class = 'success';
@@ -66,57 +62,100 @@ try {
         }
     }
 
-    // Fetch categories for search filter
-    $categories = $db->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
+    // Fetch categories
+    $categories = $db->find('categories', [], ['sort' => ['name' => 1]]);
+    $categoryMap = [];
+    foreach ($categories as $cat) {
+        $categoryMap[(string)$cat['_id']] = $cat['name'];
+    }
 
-    // 2. Fetch all reported items
-    // Since they are in separate tables, we can fetch lost items and found items, or display them in two tabs, or UNION them!
-    // A UNION query with columns aliased is extremely clean and matches enterprise database standards!
+    // Fetch users for mapping
+    $users_list = $db->find('users');
+    $userMap = [];
+    foreach ($users_list as $u) {
+        $userMap[(string)$u['_id']] = $u['name'];
+    }
+
     $type_filter = $_GET['type'] ?? 'all';
     $cat_filter = $_GET['category'] ?? '';
     $query = trim($_GET['search'] ?? '');
 
-    $union_queries = [];
-    $params = [];
+    // Construct filter for lost items
+    $lost_filter = [];
+    if (!empty($cat_filter)) {
+        $catDoc = $db->findOne('categories', ['name' => $cat_filter]);
+        if ($catDoc) {
+            $lost_filter['category_id'] = toObjectId($catDoc['_id']);
+        } else {
+            $lost_filter['category_id'] = new MongoDB\BSON\ObjectId(); // no match
+        }
+    }
+    if (!empty($query)) {
+        $lost_filter['$or'] = [
+            ['title' => ['$regex' => $query, '$options' => 'i']],
+            ['description' => ['$regex' => $query, '$options' => 'i']]
+        ];
+    }
+
+    // Construct filter for found items
+    $found_filter = [];
+    if (!empty($cat_filter)) {
+        $catDoc = $db->findOne('categories', ['name' => $cat_filter]);
+        if ($catDoc) {
+            $found_filter['category_id'] = toObjectId($catDoc['_id']);
+        } else {
+            $found_filter['category_id'] = new MongoDB\BSON\ObjectId(); // no match
+        }
+    }
+    if (!empty($query)) {
+        $found_filter['$or'] = [
+            ['title' => ['$regex' => $query, '$options' => 'i']],
+            ['description' => ['$regex' => $query, '$options' => 'i']]
+        ];
+    }
+
+    $raw_lost = [];
+    $raw_found = [];
 
     if ($type_filter === 'all' || $type_filter === 'lost') {
-        $lost_sql = "SELECT 'lost' as item_type, l.id, l.title, l.location, l.lost_date as reported_date, l.status, l.created_at, c.name as category_name, u.name as reporter_name 
-                     FROM lost_items l 
-                     JOIN categories c ON l.category_id = c.id 
-                     JOIN users u ON l.user_id = u.id 
-                     WHERE 1=1";
-        if (!empty($cat_filter)) {
-            $lost_sql .= " AND c.name = :category_l";
-            $params[':category_l'] = $cat_filter;
-        }
-        if (!empty($query)) {
-            $lost_sql .= " AND (l.title LIKE :search_l OR l.description LIKE :search_l)";
-            $params[':search_l'] = '%' . $query . '%';
-        }
-        $union_queries[] = $lost_sql;
+        $raw_lost = $db->find('lost_items', $lost_filter);
     }
-
     if ($type_filter === 'all' || $type_filter === 'found') {
-        $found_sql = "SELECT 'found' as item_type, f.id, f.title, f.location, f.found_date as reported_date, f.status, f.created_at, c.name as category_name, u.name as reporter_name 
-                      FROM found_items f 
-                      JOIN categories c ON f.category_id = c.id 
-                      JOIN users u ON f.user_id = u.id 
-                      WHERE 1=1";
-        if (!empty($cat_filter)) {
-            $found_sql .= " AND c.name = :category_f";
-            $params[':category_f'] = $cat_filter;
-        }
-        if (!empty($query)) {
-            $found_sql .= " AND (f.title LIKE :search_f OR f.description LIKE :search_f)";
-            $params[':search_f'] = '%' . $query . '%';
-        }
-        $union_queries[] = $found_sql;
+        $raw_found = $db->find('found_items', $found_filter);
     }
 
-    $final_sql = implode(" UNION ", $union_queries) . " ORDER BY created_at DESC";
-    $stmt = $db->prepare($final_sql);
-    $stmt->execute($params);
-    $items = $stmt->fetchAll();
+    $items = [];
+    foreach ($raw_lost as $itm) {
+        $items[] = [
+            'item_type' => 'lost',
+            'id' => $itm['_id'],
+            'title' => $itm['title'],
+            'location' => $itm['location'],
+            'reported_date' => $itm['lost_date'],
+            'status' => $itm['status'],
+            'created_at' => $itm['created_at'],
+            'category_name' => $categoryMap[(string)$itm['category_id']] ?? 'Others',
+            'reporter_name' => $userMap[(string)$itm['user_id']] ?? 'Unknown'
+        ];
+    }
+    foreach ($raw_found as $itm) {
+        $items[] = [
+            'item_type' => 'found',
+            'id' => $itm['_id'],
+            'title' => $itm['title'],
+            'location' => $itm['location'],
+            'reported_date' => $itm['found_date'],
+            'status' => $itm['status'],
+            'created_at' => $itm['created_at'],
+            'category_name' => $categoryMap[(string)$itm['category_id']] ?? 'Others',
+            'reporter_name' => $userMap[(string)$itm['user_id']] ?? 'Unknown'
+        ];
+    }
+
+    // Sort by created_at DESC
+    usort($items, function($a, $b) {
+        return strcmp($b['created_at'], $a['created_at']);
+    });
 
 } catch (Exception $e) {
     error_log("Admin items moderator failure: " . $e->getMessage());

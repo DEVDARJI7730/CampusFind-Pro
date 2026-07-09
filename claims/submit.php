@@ -11,7 +11,7 @@ requireRole('student');
 
 $claimer_id = $_SESSION['user_id'];
 $item_type = $_GET['item_type'] ?? '';
-$item_id = filter_var($_GET['item_id'] ?? '', FILTER_VALIDATE_INT);
+$item_id = trim($_GET['item_id'] ?? '');
 $error = '';
 $success = '';
 
@@ -20,17 +20,13 @@ if (!in_array($item_type, ['lost', 'found']) || !$item_id) {
 }
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // 1. Fetch item details and check if claim is duplicate or belongs to owner
     if ($item_type === 'found') {
-        $stmt = $db->prepare("SELECT * FROM found_items WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $item_id]);
-        $item = $stmt->fetch();
+        $item = $db->findOne('found_items', ['_id' => toObjectId($item_id)]);
     } else {
-        $stmt = $db->prepare("SELECT * FROM lost_items WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $item_id]);
-        $item = $stmt->fetch();
+        $item = $db->findOne('lost_items', ['_id' => toObjectId($item_id)]);
     }
 
     if (!$item) {
@@ -44,13 +40,13 @@ try {
     }
 
     // Check if user already submitted a pending/approved claim for this item
-    $claim_check = $db->prepare("SELECT id FROM claims WHERE item_type = :itype AND item_id = :iid AND claimer_id = :cid AND status IN ('pending', 'approved') LIMIT 1");
-    $claim_check->execute([
-        ':itype' => $item_type,
-        ':iid' => $item_id,
-        ':cid' => $claimer_id
+    $existing_claim = $db->findOne('claims', [
+        'item_type' => $item_type,
+        'item_id' => toObjectId($item_id),
+        'claimer_id' => toObjectId($claimer_id),
+        'status' => ['$in' => ['pending', 'approved']]
     ]);
-    if ($claim_check->fetch()) {
+    if ($existing_claim) {
         $_SESSION['success_msg'] = 'You have already filed a claim request for this item.';
         redirect('dashboard/index.php');
     }
@@ -105,17 +101,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($upload_ok) {
             try {
                 // Insert claim
-                $claim_stmt = $db->prepare("
-                    INSERT INTO claims (item_type, item_id, claimer_id, proof_description, proof_image, status) 
-                    VALUES (:itype, :iid, :cid, :desc, :img, 'pending')
-                ");
-                $claim_stmt->execute([
-                    ':itype' => $item_type,
-                    ':iid' => $item_id,
-                    ':cid' => $claimer_id,
-                    ':desc' => $proof_desc,
-                    ':img' => $proof_image
-                ]);
+                $claim_doc = [
+                    'item_type' => $item_type,
+                    'item_id' => toObjectId($item_id),
+                    'claimer_id' => toObjectId($claimer_id),
+                    'proof_description' => $proof_desc,
+                    'proof_image' => $proof_image,
+                    'status' => 'pending',
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ];
+                $db->insert('claims', $claim_doc);
 
                 // Log Activity
                 logActivity($claimer_id, 'SUBMIT_CLAIM', 'Submitted a claim request for ' . $item_type . ' item: ' . $item['title']);

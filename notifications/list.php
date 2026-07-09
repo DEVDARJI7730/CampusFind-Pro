@@ -13,16 +13,18 @@ $user_id = $_SESSION['user_id'];
 $notifications = [];
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
     // Fetch notifications
-    $stmt = $db->prepare("SELECT * FROM notifications WHERE user_id = :uid ORDER BY created_at DESC LIMIT 30");
-    $stmt->execute([':uid' => $user_id]);
-    $notifications = $stmt->fetchAll();
+    $raw_notifs = $db->find('notifications', ['user_id' => (string)$user_id], ['sort' => ['created_at' => -1], 'limit' => 30]);
+    $notifications = [];
+    foreach ($raw_notifs as $notif) {
+        $notif['is_read'] = (isset($notif['status']) && $notif['status'] === 'read') ? 1 : 0;
+        $notifications[] = $notif;
+    }
 
     // Mark all as read as the student reads them
-    $update_stmt = $db->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = :uid AND is_read = 0");
-    $update_stmt->execute([':uid' => $user_id]);
+    $db->update('notifications', ['user_id' => (string)$user_id, 'status' => 'unread'], ['status' => 'read'], true);
 } catch (Exception $e) {
     error_log("Notifications fetch failure: " . $e->getMessage());
 }

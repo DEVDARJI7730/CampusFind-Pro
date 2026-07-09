@@ -14,10 +14,9 @@ $error = '';
 $success = '';
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     // Fetch categories for dropdown
-    $cat_stmt = $db->query("SELECT * FROM categories ORDER BY name ASC");
-    $categories = $cat_stmt->fetchAll();
+    $categories = $db->find('categories', [], ['sort' => ['name' => 1]]);
 } catch (Exception $e) {
     error_log("Report Lost categories fetch fail: " . $e->getMessage());
     $categories = [];
@@ -26,7 +25,7 @@ try {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $category_id = filter_var($_POST['category_id'] ?? '', FILTER_VALIDATE_INT);
+    $category_id = trim($_POST['category_id'] ?? '');
     $location = trim($_POST['location'] ?? '');
     $lost_date = $_POST['lost_date'] ?? '';
     $reward = filter_var($_POST['reward'] ?? 0.00, FILTER_VALIDATE_FLOAT);
@@ -35,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate Input
     if (!validateCSRFToken($csrf)) {
         $error = 'Invalid security token.';
-    } elseif (empty($title) || empty($description) || !$category_id || empty($location) || empty($lost_date)) {
+    } elseif (empty($title) || empty($description) || empty($category_id) || empty($location) || empty($lost_date)) {
         $error = 'All fields except Reward and Image are required.';
     } else {
         $image_name = null;
@@ -79,23 +78,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $qr_token = generateQRToken();
                 
-                $insert_stmt = $db->prepare("
-                    INSERT INTO lost_items (user_id, category_id, title, description, location, lost_date, image, reward, status, qr_token) 
-                    VALUES (:uid, :cat_id, :title, :descr, :loc, :ldate, :img, :reward, 'lost', :qr)
-                ");
-                $insert_stmt->execute([
-                    ':uid' => $user_id,
-                    ':cat_id' => $category_id,
-                    ':title' => $title,
-                    ':descr' => $description,
-                    ':loc' => $location,
-                    ':ldate' => $lost_date,
-                    ':img' => $image_name,
-                    ':reward' => $reward ?: 0.00,
-                    ':qr' => $qr_token
-                ]);
-
-                $item_id = $db->lastInsertId();
+                $item_document = [
+                    'user_id' => toObjectId($user_id),
+                    'category_id' => toObjectId($category_id),
+                    'title' => $title,
+                    'description' => $description,
+                    'location' => $location,
+                    'lost_date' => $lost_date,
+                    'image' => $image_name,
+                    'reward' => $reward ?: 0.00,
+                    'status' => 'lost',
+                    'qr_token' => $qr_token,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ];
+                $item_id = $db->insert('lost_items', $item_document);
 
                 // Log Activity
                 logActivity($user_id, 'REPORT_LOST_ITEM', 'Reported lost item: ' . $title);
@@ -149,7 +146,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                             <select name="category_id" class="form-select form-premium-control" required>
                                 <option value="">Select Category</option>
                                 <?php foreach ($categories as $cat): ?>
-                                    <option value="<?php echo $cat['id']; ?>"><?php echo sanitize($cat['name']); ?></option>
+                                    <option value="<?php echo $cat['_id']; ?>"><?php echo sanitize($cat['name']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>

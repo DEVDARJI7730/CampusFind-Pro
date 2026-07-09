@@ -6,29 +6,31 @@ require_once dirname(__DIR__) . '/config/config.php';
 require_once dirname(__DIR__) . '/config/session.php';
 require_once dirname(__DIR__) . '/config/database.php';
 
-$item_id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+$item_id = trim($_GET['id'] ?? '');
 
 if (!$item_id) {
     redirect('index.php');
 }
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
-    // Fetch item details joining category and user details (who reported it)
-    $stmt = $db->prepare("
-        SELECT l.*, c.name as category_name, u.name as reporter_name, u.email as reporter_email, u.phone as reporter_phone
-        FROM lost_items l
-        JOIN categories c ON l.category_id = c.id
-        JOIN users u ON l.user_id = u.id
-        WHERE l.id = :id LIMIT 1
-    ");
-    $stmt->execute([':id' => $item_id]);
-    $item = $stmt->fetch();
+    // Fetch item details
+    $item = $db->findOne('lost_items', ['_id' => toObjectId($item_id)]);
 
     if (!$item) {
         redirect('index.php');
     }
+
+    // Fetch category name
+    $category = $db->findOne('categories', ['_id' => toObjectId($item['category_id'])]);
+    $item['category_name'] = $category['name'] ?? 'Others';
+
+    // Fetch reporter details
+    $reporter = $db->findOne('users', ['_id' => toObjectId($item['user_id'])]);
+    $item['reporter_name'] = $reporter['name'] ?? 'Unknown';
+    $item['reporter_email'] = $reporter['email'] ?? '';
+    $item['reporter_phone'] = $reporter['phone'] ?? '';
 } catch (Exception $e) {
     error_log("Lost view failure: " . $e->getMessage());
     redirect('index.php');
@@ -84,13 +86,13 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                 <?php if ($_SESSION['user_id'] === $item['user_id']): ?>
                                     <!-- Owner Actions -->
                                     <div class="d-flex gap-2">
-                                        <a href="edit.php?id=<?php echo $item['id']; ?>" class="btn btn-premium w-50 py-3"><i class="fa-solid fa-pen-to-square me-2"></i>Edit Report</a>
-                                        <a href="delete.php?id=<?php echo $item['id']; ?>" class="btn btn-premium-outline w-50 py-3 text-danger border-danger" onclick="return confirm('Delete this lost report forever?')"><i class="fa-solid fa-trash me-2"></i>Delete</a>
+                                        <a href="edit.php?id=<?php echo $item['_id']; ?>" class="btn btn-premium w-50 py-3"><i class="fa-solid fa-pen-to-square me-2"></i>Edit Report</a>
+                                        <a href="delete.php?id=<?php echo $item['_id']; ?>" class="btn btn-premium-outline w-50 py-3 text-danger border-danger" onclick="return confirm('Delete this lost report forever?')"><i class="fa-solid fa-trash me-2"></i>Delete</a>
                                     </div>
                                 <?php else: ?>
                                     <!-- Visitor Actions -->
                                     <?php if ($item['status'] === 'lost'): ?>
-                                        <a href="<?php echo SITE_URL; ?>/claims/submit.php?item_type=lost&item_id=<?php echo $item['id']; ?>" class="btn btn-premium w-100 py-3"><i class="fa-solid fa-hand-holding-hand me-2"></i>I Found This Item</a>
+                                        <a href="<?php echo SITE_URL; ?>/claims/submit.php?item_type=lost&item_id=<?php echo $item['_id']; ?>" class="btn btn-premium w-100 py-3"><i class="fa-solid fa-hand-holding-hand me-2"></i>I Found This Item</a>
                                     <?php else: ?>
                                         <button class="btn btn-secondary w-100 py-3" disabled><i class="fa-solid fa-circle-check me-2"></i>Already Reunited</button>
                                     <?php endif; ?>
@@ -148,7 +150,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
 
 <?php
 // Script to render QR Code client-side
-$item_view_url = SITE_URL . '/lost/view.php?id=' . $item['id'];
+$item_view_url = SITE_URL . '/lost/view.php?id=' . $item['_id'];
 $extra_js = "
 <script>
     document.addEventListener('DOMContentLoaded', () => {

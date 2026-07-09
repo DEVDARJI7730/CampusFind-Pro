@@ -14,7 +14,7 @@ $msg = '';
 $msg_class = 'success';
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // 1. Process Settings Form Submit
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -40,12 +40,10 @@ try {
                 $msg_class = 'danger';
             } else {
                 // Loop update queries
-                $update_stmt = $db->prepare("UPDATE settings SET setting_value = :val WHERE setting_key = :key");
-                
                 foreach ($settings_to_update as $key => $value) {
-                    $update_stmt->execute([
-                        ':val' => (string)$value,
-                        ':key' => $key
+                    $db->update('settings', ['setting_key' => $key], [
+                        'setting_value' => (string)$value,
+                        'updated_at' => date('Y-m-d H:i:s')
                     ]);
                 }
 
@@ -57,8 +55,7 @@ try {
     }
 
     // 2. Fetch current settings keys
-    $settings_stmt = $db->query("SELECT * FROM settings");
-    $settings_raw = $settings_stmt->fetchAll();
+    $settings_raw = $db->find('settings');
     
     // Key-map values
     $config_settings = [];

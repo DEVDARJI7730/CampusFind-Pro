@@ -20,42 +20,62 @@ $offset = ($page - 1) * $limit;
 $query = trim($_GET['search'] ?? '');
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // 2. Construct Dynamic Search
-    $sql = "SELECT a.*, u.name as user_name, u.email as user_email 
-            FROM activity_logs a 
-            LEFT JOIN users u ON a.user_id = u.id 
-            WHERE 1=1";
-    $count_sql = "SELECT COUNT(*) as total 
-                  FROM activity_logs a 
-                  LEFT JOIN users u ON a.user_id = u.id 
-                  WHERE 1=1";
-    $params = [];
-
+    $filter = [];
     if (!empty($query)) {
-        $sql .= " AND (a.action LIKE :search OR a.description LIKE :search OR u.name LIKE :search)";
-        $count_sql .= " AND (a.action LIKE :search OR a.description LIKE :search OR u.name LIKE :search)";
-        $params[':search'] = '%' . $query . '%';
+        // Fetch users matching search query name
+        $matched_users = $db->find('users', ['name' => ['$regex' => $query, '$options' => 'i']]);
+        $user_ids = [];
+        foreach ($matched_users as $mu) {
+            $user_ids[] = (string)$mu['_id'];
+        }
+
+        $or_conditions = [
+            ['action' => ['$regex' => $query, '$options' => 'i']],
+            ['description' => ['$regex' => $query, '$options' => 'i']]
+        ];
+        if (!empty($user_ids)) {
+            $or_conditions[] = ['user_id' => ['$in' => $user_ids]];
+        }
+        $filter['$or'] = $or_conditions;
     }
 
-    $sql .= " ORDER BY a.created_at DESC LIMIT :limit OFFSET :offset";
-
     // 3. Fetch count
-    $stmt_count = $db->prepare($count_sql);
-    $stmt_count->execute($params);
-    $total_logs = $stmt_count->fetch()['total'] ?? 0;
+    $total_logs = $db->count('activity_logs', $filter);
     $total_pages = ceil($total_logs / $limit);
 
     // 4. Fetch logs
-    $stmt = $db->prepare($sql);
-    $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-    foreach ($params as $key => $val) {
-        $stmt->bindValue($key, $val);
+    $options = [
+        'sort' => ['created_at' => -1],
+        'limit' => $limit,
+        'skip' => $offset
+    ];
+    $raw_logs = $db->find('activity_logs', $filter, $options);
+    
+    // Fetch users for mapping to logs
+    $users_list = $db->find('users');
+    $userMap = [];
+    foreach ($users_list as $u) {
+        $userMap[(string)$u['_id']] = [
+            'name' => $u['name'],
+            'email' => $u['email']
+        ];
     }
-    $stmt->execute();
-    $logs = $stmt->fetchAll();
+
+    $logs = [];
+    foreach ($raw_logs as $log) {
+        $uid = (string)($log['user_id'] ?? '');
+        if (isset($userMap[$uid])) {
+            $log['user_name'] = $userMap[$uid]['name'];
+            $log['user_email'] = $userMap[$uid]['email'];
+        } else {
+            $log['user_name'] = null;
+            $log['user_email'] = null;
+        }
+        $logs[] = $log;
+    }
 
 } catch (Exception $e) {
     error_log("Admin logs console failure: " . $e->getMessage());

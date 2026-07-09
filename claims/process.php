@@ -12,7 +12,7 @@ requireRole('admin');
 $admin_id = $_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $claim_id = filter_var($_POST['claim_id'] ?? '', FILTER_VALIDATE_INT);
+    $claim_id = trim($_POST['claim_id'] ?? '');
     $action = $_POST['action'] ?? '';
     $admin_notes = trim($_POST['admin_notes'] ?? '');
     $csrf = $_POST['csrf_token'] ?? '';
@@ -30,12 +30,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $db = Database::getInstance()->getConnection();
+        $db = Database::getInstance();
         
         // Fetch claim
-        $claim_stmt = $db->prepare("SELECT * FROM claims WHERE id = :id LIMIT 1");
-        $claim_stmt->execute([':id' => $claim_id]);
-        $claim = $claim_stmt->fetch();
+        $claim = $db->findOne('claims', ['_id' => toObjectId($claim_id)]);
 
         if (!$claim) {
             $_SESSION['admin_msg'] = 'Claim request not found.';
@@ -46,43 +44,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Fetch related item title to inject in notifications
         $item_title = 'Item';
         if ($claim['item_type'] === 'found') {
-            $item_stmt = $db->prepare("SELECT title FROM found_items WHERE id = :iid LIMIT 1");
-            $item_stmt->execute([':iid' => $claim['item_id']]);
-            $item = $item_stmt->fetch();
+            $item = $db->findOne('found_items', ['_id' => toObjectId($claim['item_id'])]);
             if ($item) $item_title = $item['title'];
         } else {
-            $item_stmt = $db->prepare("SELECT title FROM lost_items WHERE id = :iid LIMIT 1");
-            $item_stmt->execute([':iid' => $claim['item_id']]);
-            $item = $item_stmt->fetch();
+            $item = $db->findOne('lost_items', ['_id' => toObjectId($claim['item_id'])]);
             if ($item) $item_title = $item['title'];
         }
-
-        // Start Transaction for consistency
-        $db->beginTransaction();
 
         $new_status = ($action === 'approve') ? 'approved' : 'rejected';
         
         // Update claim record
-        $update_claim = $db->prepare("
-            UPDATE claims 
-            SET status = :status, admin_notes = :notes, processed_by = :admin, processed_at = CURRENT_TIMESTAMP 
-            WHERE id = :id
-        ");
-        $update_claim->execute([
-            ':status' => $new_status,
-            ':notes' => $admin_notes ?: null,
-            ':admin' => $admin_id,
-            ':id' => $claim_id
+        $db->update('claims', ['_id' => toObjectId($claim_id)], [
+            'status' => $new_status,
+            'admin_notes' => $admin_notes ?: null,
+            'processed_by' => toObjectId($admin_id),
+            'processed_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
         ]);
 
         if ($action === 'approve') {
             // Update item status to claimed/returned
             if ($claim['item_type'] === 'found') {
-                $update_item = $db->prepare("UPDATE found_items SET status = 'claimed' WHERE id = :iid");
+                $db->update('found_items', ['_id' => toObjectId($claim['item_id'])], ['status' => 'claimed']);
             } else {
-                $update_item = $db->prepare("UPDATE lost_items SET status = 'claimed' WHERE id = :iid");
+                $db->update('lost_items', ['_id' => toObjectId($claim['item_id'])], ['status' => 'claimed']);
             }
-            $update_item->execute([':iid' => $claim['item_id']]);
 
             // Notify Claimer
             $notif_title = 'Claim Approved: ' . $item_title;
@@ -91,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Audit Log
             logActivity($admin_id, 'CLAIM_APPROVED', "Approved claim request #$claim_id for $item_title by student ID: " . $claim['claimer_id']);
-            $_SESSION['admin_msg'] = "Claim #$claim_id successfully approved.";
+            $_SESSION['admin_msg'] = "Claim successfully approved.";
             $_SESSION['admin_msg_class'] = 'success';
         } else {
             // Notify Claimer of rejection
@@ -101,17 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Audit Log
             logActivity($admin_id, 'CLAIM_REJECTED', "Rejected claim request #$claim_id for $item_title by student ID: " . $claim['claimer_id']);
-            $_SESSION['admin_msg'] = "Claim #$claim_id successfully rejected.";
+            $_SESSION['admin_msg'] = "Claim successfully rejected.";
             $_SESSION['admin_msg_class'] = 'warning';
         }
-
-        $db->commit();
     } catch (Exception $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
         error_log("Claims processing exception: " . $e->getMessage());
-        $_SESSION['admin_msg'] = 'Database transaction error occurred.';
+        $_SESSION['admin_msg'] = 'Database processing error occurred.';
         $_SESSION['admin_msg_class'] = 'danger';
     }
 }

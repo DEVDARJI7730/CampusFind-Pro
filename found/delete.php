@@ -10,19 +10,17 @@ require_once dirname(__DIR__) . '/config/database.php';
 requireRole('student');
 
 $user_id = $_SESSION['user_id'];
-$item_id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+$item_id = trim($_GET['id'] ?? '');
 
 if (!$item_id) {
     redirect('dashboard/index.php');
 }
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // Verify ownership
-    $stmt = $db->prepare("SELECT image, title FROM found_items WHERE id = :id AND user_id = :uid LIMIT 1");
-    $stmt->execute([':id' => $item_id, ':uid' => $user_id]);
-    $item = $stmt->fetch();
+    $item = $db->findOne('found_items', ['_id' => toObjectId($item_id), 'user_id' => toObjectId($user_id)]);
 
     if ($item) {
         // Delete image file from upload folder
@@ -34,8 +32,7 @@ try {
         }
 
         // Delete from database
-        $delete_stmt = $db->prepare("DELETE FROM found_items WHERE id = :id");
-        $delete_stmt->execute([':id' => $item_id]);
+        $db->delete('found_items', ['_id' => toObjectId($item_id)]);
 
         logActivity($user_id, 'DELETE_FOUND_ITEM', 'Deleted found item report: ' . $item['title']);
         $_SESSION['success_msg'] = 'Found item report deleted successfully!';

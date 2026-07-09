@@ -14,11 +14,11 @@ $msg = '';
 $msg_class = 'success';
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // 1. Process Actions (Activate / Suspend / Delete)
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $target_user_id = filter_var($_POST['user_id'] ?? '', FILTER_VALIDATE_INT);
+        $target_user_id = trim($_POST['user_id'] ?? '');
         $action = $_POST['action'] ?? '';
         $csrf = $_POST['csrf_token'] ?? '';
 
@@ -28,14 +28,11 @@ try {
         } elseif ($target_user_id) {
             if ($action === 'toggle_status') {
                 // Fetch current status
-                $status_stmt = $db->prepare("SELECT status, name FROM users WHERE id = :uid LIMIT 1");
-                $status_stmt->execute([':uid' => $target_user_id]);
-                $user = $status_stmt->fetch();
+                $user = $db->findOne('users', ['_id' => toObjectId($target_user_id)]);
 
                 if ($user) {
                     $new_status = ($user['status'] === 'active') ? 'suspended' : 'active';
-                    $update_stmt = $db->prepare("UPDATE users SET status = :status WHERE id = :uid");
-                    $update_stmt->execute([':status' => $new_status, ':uid' => $target_user_id]);
+                    $db->update('users', ['_id' => toObjectId($target_user_id)], ['status' => $new_status]);
 
                     logActivity($admin_id, 'USER_STATUS_CHANGE', "Toggled status of user " . $user['name'] . " to $new_status.");
                     $msg = "User status updated to $new_status successfully.";
@@ -43,12 +40,10 @@ try {
                 }
             } elseif ($action === 'delete') {
                 // Delete user
-                $name_stmt = $db->prepare("SELECT name FROM users WHERE id = :uid LIMIT 1");
-                $name_stmt->execute([':uid' => $target_user_id]);
-                $uname = $name_stmt->fetch()['name'] ?? 'Unknown';
+                $user = $db->findOne('users', ['_id' => toObjectId($target_user_id)]);
+                $uname = $user['name'] ?? 'Unknown';
 
-                $delete_stmt = $db->prepare("DELETE FROM users WHERE id = :uid");
-                $delete_stmt->execute([':uid' => $target_user_id]);
+                $db->delete('users', ['_id' => toObjectId($target_user_id)]);
 
                 logActivity($admin_id, 'USER_DELETED', "Permanently deleted user: $uname");
                 $msg = "User record permanently deleted.";
@@ -59,18 +54,17 @@ try {
 
     // 2. Search & Fetch Students list
     $search = trim($_GET['search'] ?? '');
-    $sql = "SELECT * FROM users WHERE role = 'student'";
-    $params = [];
+    $filter = ['role' => 'student'];
 
     if (!empty($search)) {
-        $sql .= " AND (name LIKE :search OR email LIKE :search OR student_id LIKE :search)";
-        $params[':search'] = '%' . $search . '%';
+        $filter['$or'] = [
+            ['name' => ['$regex' => $search, '$options' => 'i']],
+            ['email' => ['$regex' => $search, '$options' => 'i']],
+            ['student_id' => ['$regex' => $search, '$options' => 'i']]
+        ];
     }
 
-    $sql .= " ORDER BY created_at DESC";
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $users = $stmt->fetchAll();
+    $users = $db->find('users', $filter, ['sort' => ['created_at' => -1]]);
 
 } catch (Exception $e) {
     error_log("Admin user management query failure: " . $e->getMessage());
@@ -183,7 +177,7 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                 <td class="text-end">
                                     <form action="users.php" method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                        <input type="hidden" name="user_id" value="<?php echo $user['_id']; ?>">
                                         
                                         <!-- Suspend / Activate Toggle -->
                                         <button type="submit" name="action" value="toggle_status" class="btn btn-sm btn-outline-warning me-1" title="<?php echo $user['status'] === 'active' ? 'Suspend Account' : 'Activate Account'; ?>">
