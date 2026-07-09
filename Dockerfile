@@ -1,8 +1,12 @@
 # Use official PHP 8.2 image with Apache pre-installed
 FROM php:8.2-apache
 
-# Install PDO MySQL extension for database queries
-RUN docker-php-ext-install pdo pdo_mysql
+# Install build dependencies and PHP MongoDB extension
+RUN apt-get update && apt-get install -y \
+        libssl-dev \
+        unzip \
+    && pecl install mongodb \
+    && docker-php-ext-enable mongodb
 
 # Enable Apache mod_rewrite (required for custom routing and clean URLs)
 RUN a2enmod rewrite
