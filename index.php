@@ -15,26 +15,16 @@ $resolved_claims = 0;
 $total_users = 0;
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
-    $lost_stmt = $db->query("SELECT COUNT(*) as count FROM lost_items WHERE status = 'lost'");
-    $total_lost = $lost_stmt->fetch()['count'];
-
-    $found_stmt = $db->query("SELECT COUNT(*) as count FROM found_items WHERE status = 'found'");
-    $total_found = $found_stmt->fetch()['count'];
-
-    $claims_stmt = $db->query("SELECT COUNT(*) as count FROM claims WHERE status = 'approved'");
-    $resolved_claims = $claims_stmt->fetch()['count'];
-
-    $users_stmt = $db->query("SELECT COUNT(*) as count FROM users WHERE role = 'student'");
-    $total_users = $users_stmt->fetch()['count'];
+    $total_lost = $db->count('lost_items', ['status' => 'lost']);
+    $total_found = $db->count('found_items', ['status' => 'found']);
+    $resolved_claims = $db->count('claims', ['status' => 'approved']);
+    $total_users = $db->count('users', ['role' => 'student']);
 
     // Fetch latest items for preview
-    $latest_lost_stmt = $db->query("SELECT l.*, c.name as category_name FROM lost_items l JOIN categories c ON l.category_id = c.id WHERE l.status = 'lost' ORDER BY l.created_at DESC LIMIT 3");
-    $latest_lost = $latest_lost_stmt->fetchAll();
-
-    $latest_found_stmt = $db->query("SELECT f.*, c.name as category_name FROM found_items f JOIN categories c ON f.category_id = c.id WHERE f.status = 'found' ORDER BY f.created_at DESC LIMIT 3");
-    $latest_found = $latest_found_stmt->fetchAll();
+    $latest_lost = $db->find('lost_items', ['status' => 'lost'], ['sort' => ['created_at' => -1], 'limit' => 3]);
+    $latest_found = $db->find('found_items', ['status' => 'found'], ['sort' => ['created_at' => -1], 'limit' => 3]);
 } catch (Exception $e) {
     error_log("Landing Page Fetch Fail: " . $e->getMessage());
     $latest_lost = [];
