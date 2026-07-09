@@ -14,12 +14,10 @@ $error = '';
 $success = '';
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
     // Fetch fresh user data
-    $stmt = $db->prepare("SELECT * FROM users WHERE id = :uid LIMIT 1");
-    $stmt->execute([':uid' => $user_id]);
-    $user = $stmt->fetch();
+    $user = $db->findOne('users', ['_id' => new MongoDB\BSON\ObjectId($user_id)]);
 } catch (Exception $e) {
     error_log("Profile query failed: " . $e->getMessage());
 }
@@ -39,11 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Name cannot be empty.';
             } else {
                 try {
-                    $update_stmt = $db->prepare("UPDATE users SET name = :name, phone = :phone WHERE id = :uid");
-                    $update_stmt->execute([
-                        ':name' => $name,
-                        ':phone' => $phone ?: null,
-                        ':uid' => $user_id
+                    $db->update('users', ['_id' => $user['_id']], [
+                        'name' => $name,
+                        'phone' => $phone ?: null
                     ]);
 
                     $_SESSION['user_name'] = $name;
@@ -51,8 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     logActivity($user_id, 'PROFILE_UPDATE', 'User updated name and phone settings.');
                     
                     // Refresh data
-                    $stmt->execute([':uid' => $user_id]);
-                    $user = $stmt->fetch();
+                    $user = $db->findOne('users', ['_id' => $user['_id']]);
                 } catch (Exception $e) {
                     error_log("Profile update fail: " . $e->getMessage());
                     $error = 'Database error. Please try again.';
@@ -77,10 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 try {
                     $new_hash = password_hash($new_password, PASSWORD_BCRYPT);
-                    $update_stmt = $db->prepare("UPDATE users SET password = :pass WHERE id = :uid");
-                    $update_stmt->execute([
-                        ':pass' => $new_hash,
-                        ':uid' => $user_id
+                    $db->update('users', ['_id' => $user['_id']], [
+                        'password' => $new_hash
                     ]);
 
                     $success = 'Password changed successfully.';
@@ -127,27 +120,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($user['avatar'] !== 'default-avatar.png') {
                                 $old_image_path = UPLOAD_PATH . '/' . $user['avatar'];
                                 if (file_exists($old_image_path)) {
-                                    unlink($old_image_path);
+                                    @unlink($old_image_path);
                                 }
                             }
-
-                            // Update DB
-                            $update_stmt = $db->prepare("UPDATE users SET avatar = :avatar WHERE id = :uid");
-                            $update_stmt->execute([
-                                ':avatar' => $newFileName,
-                                ':uid' => $user_id
+                            
+                            $db->update('users', ['_id' => $user['_id']], [
+                                'avatar' => $newFileName
                             ]);
-
+                            
                             $_SESSION['user_avatar'] = $newFileName;
-                            $success = 'Profile picture updated successfully.';
-                            logActivity($user_id, 'AVATAR_UPLOAD', 'User uploaded a new profile picture.');
-
-                            // Refresh data
-                            $stmt->execute([':uid' => $user_id]);
-                            $user = $stmt->fetch();
+                            $success = 'Profile avatar updated successfully.';
+                            logActivity($user_id, 'AVATAR_UPDATE', 'User changed their profile picture.');
+                            
+                            // Refresh user
+                            $user = $db->findOne('users', ['_id' => $user['_id']]);
                         } catch (Exception $e) {
-                            error_log("Avatar db update failure: " . $e->getMessage());
-                            $error = 'Failed to save avatar image in database.';
+                            error_log("Avatar upload DB update fail: " . $e->getMessage());
+                            $error = 'Database error. Please try again.';
                         }
                     } else {
                         $error = 'Failed to write file to storage. Check folder permissions.';

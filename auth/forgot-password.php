@@ -24,19 +24,16 @@ if (!empty($token) && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Passwords do not match.';
     } else {
         try {
-            $db = Database::getInstance()->getConnection();
+            $db = Database::getInstance();
             // Lookup user by verification_code (used here as reset token)
-            $stmt = $db->prepare("SELECT * FROM users WHERE verification_code = :token LIMIT 1");
-            $stmt->execute([':token' => $token]);
-            $user = $stmt->fetch();
+            $user = $db->findOne('users', ['verification_code' => $token]);
 
             if ($user) {
                 $new_hash = password_hash($password, PASSWORD_BCRYPT);
                 // Update password and clear token
-                $update_stmt = $db->prepare("UPDATE users SET password = :pass, verification_code = NULL WHERE id = :uid");
-                $update_stmt->execute([':pass' => $new_hash, ':uid' => $user['id']]);
+                $db->update('users', ['_id' => $user['_id']], ['password' => $new_hash, 'verification_code' => null]);
 
-                logActivity($user['id'], 'PASSWORD_RESET', 'User reset their password successfully.');
+                logActivity((string)$user['_id'], 'PASSWORD_RESET', 'User reset their password successfully.');
                 $success = 'Your password has been reset successfully. You can now login.';
                 // Clear token so form doesn't show again
                 $token = '';
@@ -61,18 +58,15 @@ if (empty($token) && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter a valid email address.';
     } else {
         try {
-            $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT * FROM users WHERE email = :email LIMIT 1");
-            $stmt->execute([':email' => $email]);
-            $user = $stmt->fetch();
+            $db = Database::getInstance();
+            $user = $db->findOne('users', ['email' => $email]);
 
             if ($user) {
                 // Generate secure reset token
                 $reset_token = bin2hex(random_bytes(16));
                 
                 // Store in verification_code column temporarily
-                $update_stmt = $db->prepare("UPDATE users SET verification_code = :token WHERE id = :uid");
-                $update_stmt->execute([':token' => $reset_token, ':uid' => $user['id']]);
+                $db->update('users', ['_id' => $user['_id']], ['verification_code' => $reset_token]);
 
                 // Dispatch password reset email
                 $reset_link = SITE_URL . '/auth/forgot-password.php?token=' . $reset_token;

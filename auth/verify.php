@@ -29,18 +29,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter the verification code.';
     } else {
         try {
-            $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT * FROM users WHERE email = :email LIMIT 1");
-            $stmt->execute([':email' => $email]);
-            $user = $stmt->fetch();
+            $db = Database::getInstance();
+            $user = $db->findOne('users', ['email' => $email]);
 
             if ($user && $user['verification_code'] === $code) {
                 // Update verification status
-                $update_stmt = $db->prepare("UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = :uid");
-                $update_stmt->execute([':uid' => $user['id']]);
+                $db->update('users', ['_id' => $user['_id']], ['is_verified' => 1, 'verification_code' => null]);
 
+                $userIdStr = (string)$user['_id'];
                 // Create session
-                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_id'] = $userIdStr;
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['user_role'] = $user['role'];
@@ -48,12 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['last_activity'] = time();
 
                 // Log activity
-                logActivity($user['id'], 'VERIFY_EMAIL', 'Email verified successfully.');
+                logActivity($userIdStr, 'VERIFY_EMAIL', 'Email verified successfully.');
 
                 unset($_SESSION['verify_email']);
                 redirect('dashboard/index.php');
             } else {
-                $error = 'Incorrect verification code. Please check your simulated log (`uploads/mock_emails.log`).';
+                $error = 'Incorrect verification code. Please check your email inbox or simulated log.';
             }
         } catch (Exception $e) {
             error_log("Verification script fail: " . $e->getMessage());

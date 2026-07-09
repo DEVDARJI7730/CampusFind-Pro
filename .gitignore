@@ -1,0 +1,12 @@
+.env
+.env.local
+.env.*.local
+uploads/reports/
+uploads/mock_emails.log
+uploads/avatar-*.jpg
+uploads/avatar-*.png
+*.bak
+.idea/
+.vscode/
+node_modules/
+vendor/

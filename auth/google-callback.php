@@ -81,27 +81,23 @@ try {
     }
 
     // 4. Database User Lookup / Match
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
     // Check if user already linked Google account
-    $stmt = $db->prepare("SELECT * FROM users WHERE google_id = :gid LIMIT 1");
-    $stmt->execute([':gid' => $google_id]);
-    $user = $stmt->fetch();
+    $user = $db->findOne('users', ['google_id' => $google_id]);
 
     if (!$user) {
         // If not found by google_id, check if email matches manual registration
-        $stmt = $db->prepare("SELECT * FROM users WHERE email = :email LIMIT 1");
-        $stmt->execute([':email' => $email]);
-        $user = $stmt->fetch();
+        $user = $db->findOne('users', ['email' => $email]);
 
         if ($user) {
             // Link Google account to existing user
-            $link_stmt = $db->prepare("UPDATE users SET google_id = :gid WHERE id = :uid");
-            $link_stmt->execute([':gid' => $google_id, ':uid' => $user['id']]);
+            $db->update('users', ['_id' => $user['_id']], ['google_id' => $google_id]);
             
             // Refresh local user data
             $user['google_id'] = $google_id;
-            logActivity($user['id'], 'OAUTH_LINK', 'Linked Google OAuth credentials to existing profile.');
+            $userIdStr = (string)$user['_id'];
+            logActivity($userIdStr, 'OAUTH_LINK', 'Linked Google OAuth credentials to existing profile.');
         } else {
             // Register new student automatically via Google OAuth details
             // Save/Download Google Profile Image locally
@@ -124,25 +120,23 @@ try {
             $random_student_id = 'GGL-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
 
             // Insert new user
-            $insert_stmt = $db->prepare("
-                INSERT INTO users (student_id, google_id, name, email, password, avatar, role, is_verified, status) 
-                VALUES (:sid, :gid, :name, :email, :pass, :avatar, 'student', 1, 'active')
-            ");
-            $insert_stmt->execute([
-                ':sid' => $random_student_id,
-                ':gid' => $google_id,
-                ':name' => $name,
-                ':email' => $email,
-                ':pass' => $random_password,
-                ':avatar' => $local_avatar,
-            ]);
-
-            $new_user_id = $db->lastInsertId();
+            $user_document = [
+                'student_id' => $random_student_id,
+                'google_id' => $google_id,
+                'name' => $name,
+                'email' => $email,
+                'password' => $random_password,
+                'avatar' => $local_avatar,
+                'role' => 'student',
+                'status' => 'active',
+                'is_verified' => 1,
+                'verification_code' => null,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
             
-            // Fetch newly created user
-            $stmt = $db->prepare("SELECT * FROM users WHERE id = :uid LIMIT 1");
-            $stmt->execute([':uid' => $new_user_id]);
-            $user = $stmt->fetch();
+            $new_user_id = $db->insert('users', $user_document);
+            $user = $db->findOne('users', ['_id' => new MongoDB\BSON\ObjectId($new_user_id)]);
 
             logActivity($new_user_id, 'OAUTH_REGISTER', 'Created student profile automatically via Google OAuth.');
             addNotification($new_user_id, 'Welcome to CampusFind Pro', "Hello $name, your profile was successfully created using your Google account!");
@@ -156,7 +150,8 @@ try {
         redirect('auth/login.php');
     }
 
-    $_SESSION['user_id'] = $user['id'];
+    $userIdStr = (string)$user['_id'];
+    $_SESSION['user_id'] = $userIdStr;
     $_SESSION['user_name'] = $user['name'];
     $_SESSION['user_email'] = $user['email'];
     $_SESSION['user_role'] = $user['role'];
@@ -164,18 +159,13 @@ try {
     $_SESSION['last_activity'] = time();
 
     // Log Activity
-    logActivity($user['id'], 'LOGIN_OAUTH', 'User successfully logged in via Google OAuth.');
+    logActivity($userIdStr, 'LOGIN_OAUTH', 'User successfully logged in via Google OAuth.');
 
     // Redirect based on role
     if ($user['role'] === 'admin') {
         // Fetch Admin level
-        $_SESSION['admin_level'] = 'moderator';
-        $admin_info_stmt = $db->prepare("SELECT admin_level FROM admins WHERE user_id = :uid LIMIT 1");
-        $admin_info_stmt->execute([':uid' => $user['id']]);
-        $admin_info = $admin_info_stmt->fetch();
-        if ($admin_info) {
-            $_SESSION['admin_level'] = $admin_info['admin_level'];
-        }
+        $admin_details = $user['admin_details'] ?? [];
+        $_SESSION['admin_level'] = $admin_details['admin_level'] ?? 'moderator';
         redirect('admin/dashboard.php');
     } else {
         redirect('dashboard/index.php');

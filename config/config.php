@@ -4,6 +4,29 @@
  * Contains environment constants, database credentials, and path definitions.
  */
 
+// Load .env file natively if it exists (for local development or custom servers)
+$envFile = dirname(__DIR__) . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        // Skip comments
+        if (strpos(trim($line), '#') === 0) {
+            continue;
+        }
+        
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $key = trim($parts[0]);
+            $val = trim($parts[1]);
+            $val = trim($val, '"\''); // Strip surrounding quotes
+            
+            putenv("$key=$val");
+            $_ENV[$key] = $val;
+            $_SERVER[$key] = $val;
+        }
+    }
+}
+
 // Core App Settings
 define('APP_NAME', 'CampusFind Pro');
 define('APP_VERSION', '1.0.0');

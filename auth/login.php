@@ -43,18 +43,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter a valid email address and password.';
     } else {
         try {
-            $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT * FROM users WHERE email = :email LIMIT 1");
-            $stmt->execute([':email' => $_POST['email']]);
-            $user = $stmt->fetch();
+            $db = Database::getInstance();
+            $user = $db->findOne('users', ['email' => $_POST['email']]);
 
             if ($user && password_verify($password, $user['password'])) {
                 if ($user['status'] === 'suspended') {
                     $error = 'Your account has been suspended. Please contact admin.';
                 } else {
                     // Check email verification config
-                    $req_verif_stmt = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'require_verification' LIMIT 1");
-                    $req_verif = $req_verif_stmt->fetch()['setting_value'] ?? '0';
+                    $req_verif_setting = $db->findOne('settings', ['setting_key' => 'require_verification']);
+                    $req_verif = $req_verif_setting['setting_value'] ?? '0';
 
                     if ($req_verif === '1' && $user['is_verified'] == 0) {
                         $_SESSION['verify_email'] = $user['email'];
@@ -62,7 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     // Successful login: Establish session keys
-                    $_SESSION['user_id'] = $user['id'];
+                    $userIdStr = (string)$user['_id'];
+                    $_SESSION['user_id'] = $userIdStr;
                     $_SESSION['user_name'] = $user['name'];
                     $_SESSION['user_email'] = $user['email'];
                     $_SESSION['user_role'] = $user['role'];
@@ -70,20 +69,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['last_activity'] = time();
 
                     // Log activity
-                    logActivity($user['id'], 'LOGIN', 'User successfully logged into the system.');
+                    logActivity($userIdStr, 'LOGIN', 'User successfully logged into the system.');
 
                     // Admin specific updates
                     if ($user['role'] === 'admin') {
-                        $admin_stmt = $db->prepare("UPDATE admins SET last_login = CURRENT_TIMESTAMP WHERE user_id = :uid");
-                        $admin_stmt->execute([':uid' => $user['id']]);
+                        $admin_details = $user['admin_details'] ?? [];
+                        $admin_details['last_login'] = date('Y-m-d H:i:s');
+                        $db->update('users', ['_id' => $user['_id']], ['admin_details' => $admin_details]);
                         
-                        $_SESSION['admin_level'] = 'moderator';
-                        $admin_info_stmt = $db->prepare("SELECT admin_level FROM admins WHERE user_id = :uid LIMIT 1");
-                        $admin_info_stmt->execute([':uid' => $user['id']]);
-                        $admin_info = $admin_info_stmt->fetch();
-                        if ($admin_info) {
-                            $_SESSION['admin_level'] = $admin_info['admin_level'];
-                        }
+                        $_SESSION['admin_level'] = $admin_details['admin_level'] ?? 'moderator';
 
                         redirect('admin/dashboard.php');
                     } else {

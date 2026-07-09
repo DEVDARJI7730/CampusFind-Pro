@@ -20,60 +20,42 @@ $pending_claims = 0;
 $approved_claims = 0;
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
 
     // 1. Fetch counts
-    $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM lost_items WHERE user_id = :uid");
-    $stmt->execute([':uid' => $user_id]);
-    $lost_count = $stmt->fetch()['cnt'];
-
-    $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM found_items WHERE user_id = :uid");
-    $stmt->execute([':uid' => $user_id]);
-    $found_count = $stmt->fetch()['cnt'];
-
-    $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM claims WHERE claimer_id = :uid AND status = 'pending'");
-    $stmt->execute([':uid' => $user_id]);
-    $pending_claims = $stmt->fetch()['cnt'];
-
-    $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM claims WHERE claimer_id = :uid AND status = 'approved'");
-    $stmt->execute([':uid' => $user_id]);
-    $approved_claims = $stmt->fetch()['cnt'];
+    $lost_count = $db->count('lost_items', ['user_id' => $user_id]);
+    $found_count = $db->count('found_items', ['user_id' => $user_id]);
+    $pending_claims = $db->count('claims', ['claimer_id' => $user_id, 'status' => 'pending']);
+    $approved_claims = $db->count('claims', ['claimer_id' => $user_id, 'status' => 'approved']);
 
     // 2. Fetch student's own lost reports
-    $lost_stmt = $db->prepare("SELECT l.*, c.name as category_name FROM lost_items l JOIN categories c ON l.category_id = c.id WHERE l.user_id = :uid ORDER BY l.created_at DESC");
-    $lost_stmt->execute([':uid' => $user_id]);
-    $my_lost_items = $lost_stmt->fetchAll();
+    $my_lost_items = $db->find('lost_items', ['user_id' => $user_id], ['sort' => ['created_at' => -1]]);
 
     // 3. Fetch student's own found reports
-    $found_stmt = $db->prepare("SELECT f.*, c.name as category_name FROM found_items f JOIN categories c ON f.category_id = c.id WHERE f.user_id = :uid ORDER BY f.created_at DESC");
-    $found_stmt->execute([':uid' => $user_id]);
-    $my_found_items = $found_stmt->fetchAll();
+    $my_found_items = $db->find('found_items', ['user_id' => $user_id], ['sort' => ['created_at' => -1]]);
 
     // 4. Fetch claims submitted by this student
-    // We join found_items or lost_items to display claimant item details. Since claims has item_type we check dynamically.
-    $claims_stmt = $db->prepare("
-        SELECT c.*, 
-        CASE 
-            WHEN c.item_type = 'found' THEN f.title 
-            WHEN c.item_type = 'lost' THEN l.title 
-        END as item_title,
-        CASE 
-            WHEN c.item_type = 'found' THEN f.location 
-            WHEN c.item_type = 'lost' THEN l.location 
-        END as item_location
-        FROM claims c
-        LEFT JOIN found_items f ON c.item_id = f.id AND c.item_type = 'found'
-        LEFT JOIN lost_items l ON c.item_id = l.id AND c.item_type = 'lost'
-        WHERE c.claimer_id = :uid
-        ORDER BY c.created_at DESC
-    ");
-    $claims_stmt->execute([':uid' => $user_id]);
-    $my_claims = $claims_stmt->fetchAll();
+    $claims_raw = $db->find('claims', ['claimer_id' => $user_id], ['sort' => ['created_at' => -1]]);
+    $my_claims = [];
+    foreach ($claims_raw as $claim) {
+        $item = null;
+        try {
+            if ($claim['item_type'] === 'found') {
+                $item = $db->findOne('found_items', ['_id' => new MongoDB\BSON\ObjectId($claim['item_id'])]);
+            } elseif ($claim['item_type'] === 'lost') {
+                $item = $db->findOne('lost_items', ['_id' => new MongoDB\BSON\ObjectId($claim['item_id'])]);
+            }
+        } catch (Exception $e) {
+            // Ignore format errors
+        }
+        
+        $claim['item_title'] = $item['title'] ?? 'Unknown Item';
+        $claim['item_location'] = $item['location'] ?? 'Unknown Location';
+        $my_claims[] = $claim;
+    }
 
     // 5. Fetch recent activity logs
-    $log_stmt = $db->prepare("SELECT * FROM activity_logs WHERE user_id = :uid ORDER BY created_at DESC LIMIT 5");
-    $log_stmt->execute([':uid' => $user_id]);
-    $my_logs = $log_stmt->fetchAll();
+    $my_logs = $db->find('activity_logs', ['user_id' => $user_id], ['sort' => ['created_at' => -1], 'limit' => 5]);
 
 } catch (Exception $e) {
     error_log("Dashboard query failure: " . $e->getMessage());

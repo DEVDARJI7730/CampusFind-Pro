@@ -39,18 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Passwords do not match.';
     } else {
         try {
-            $db = Database::getInstance()->getConnection();
+            $db = Database::getInstance();
             
             // Check if email already exists
-            $email_stmt = $db->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
-            $email_stmt->execute([':email' => $email]);
-            if ($email_stmt->fetch()) {
+            if ($db->findOne('users', ['email' => $email])) {
                 $error = 'This email address is already registered.';
             } else {
                 // Check if student ID already exists
-                $sid_stmt = $db->prepare("SELECT id FROM users WHERE student_id = :sid LIMIT 1");
-                $sid_stmt->execute([':sid' => $student_id]);
-                if ($sid_stmt->fetch()) {
+                if ($db->findOne('users', ['student_id' => $student_id])) {
                     $error = 'This Student ID is already registered.';
                 } else {
                     // Hash Password
@@ -60,24 +56,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $verification_code = strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
 
                     // Get require_verification value
-                    $req_verif_stmt = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'require_verification' LIMIT 1");
-                    $req_verif = $req_verif_stmt->fetch()['setting_value'] ?? '0';
+                    $req_verif_setting = $db->findOne('settings', ['setting_key' => 'require_verification']);
+                    $req_verif = $req_verif_setting['setting_value'] ?? '0';
                     $is_verified = ($req_verif === '1') ? 0 : 1;
 
                     // Insert user
-                    $insert_stmt = $db->prepare("INSERT INTO users (student_id, name, email, password, phone, role, is_verified, verification_code, status) 
-                                                 VALUES (:student_id, :name, :email, :password, :phone, 'student', :is_verified, :verif_code, 'active')");
-                    $insert_stmt->execute([
-                        ':student_id' => $student_id,
-                        ':name' => $name,
-                        ':email' => $email,
-                        ':password' => $password_hash,
-                        ':phone' => $phone ?: null,
-                        ':is_verified' => $is_verified,
-                        ':verif_code' => $verification_code
-                    ]);
-
-                    $user_id = $db->lastInsertId();
+                    $user_document = [
+                        'student_id' => $student_id,
+                        'google_id' => null,
+                        'name' => $name,
+                        'email' => $email,
+                        'password' => $password_hash,
+                        'phone' => $phone ?: null,
+                        'avatar' => 'default-avatar.png',
+                        'role' => 'student',
+                        'status' => 'active',
+                        'is_verified' => $is_verified,
+                        'verification_code' => $verification_code,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ];
+                    
+                    $user_id = $db->insert('users', $user_document);
 
                     // Log activity
                     logActivity($user_id, 'REGISTER', 'New student registered successfully: ' . $email);
