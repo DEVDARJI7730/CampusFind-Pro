@@ -146,7 +146,7 @@ class Database {
     public function count(string $collection, array $filter = []): int {
         $command = new MongoDB\Driver\Command([
             'count' => $collection,
-            'query' => $filter
+            'query' => empty($filter) ? (object)[] : $filter
         ]);
         $cursor = $this->manager->executeCommand($this->dbName, $command);
         $result = $cursor->toArray()[0] ?? null;
