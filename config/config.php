@@ -30,7 +30,7 @@ define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 define('UPLOAD_URL', SITE_URL . '/uploads');
 
 // MongoDB Atlas Credentials (support environment variables for cloud deployments like Render)
-define('MONGODB_URI', getenv('MONGODB_URI') ?: 'mongodb://127.0.0.1:27017');
+define('MONGODB_URI', getenv('MONGODB_URI') ?: 'mongodb+srv://YOUR_DB_USER:YOUR_DB_PASSWORD@cluster0.jpkg68b.mongodb.net/campusfind_pro?retryWrites=true&w=majority');
 define('MONGODB_DB', getenv('MONGODB_DB') ?: 'campusfind_pro');
 
 // Security Settings
