@@ -41,10 +41,8 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['last_activity'])) {
     
     // Check settings table if available
     try {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'session_timeout' LIMIT 1");
-        $stmt->execute();
-        $res = $stmt->fetch();
+        $db = Database::getInstance();
+        $res = $db->findOne('settings', ['setting_key' => 'session_timeout']);
         if ($res) {
             $timeout = (int)$res['setting_value'];
         }
