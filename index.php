@@ -92,8 +92,8 @@ require_once 'includes/navbar.php';
                                     <option value="">All Categories</option>
                                     <?php
                                     try {
-                                        $cat_stmt = $db->query("SELECT * FROM categories ORDER BY name ASC");
-                                        while ($cat = $cat_stmt->fetch()) {
+                                        $categories_list = $db->find('categories', [], ['sort' => ['name' => 1]]);
+                                        foreach ($categories_list as $cat) {
                                             echo "<option value='".sanitize($cat['name'])."'>".sanitize($cat['name'])."</option>";
                                         }
                                     } catch(Exception $e){}
@@ -161,25 +161,34 @@ require_once 'includes/navbar.php';
                     </div>
                 </div>
             <?php else: ?>
-                <?php foreach ($latest_lost as $item): ?>
+                <?php foreach ($latest_lost as $item): 
+                    $cat_name = $item['category_name'] ?? '';
+                    if (empty($cat_name) && !empty($item['category_id'])) {
+                        try {
+                            $cat = $db->findOne('categories', ['_id' => new MongoDB\BSON\ObjectId($item['category_id'])]);
+                            $cat_name = $cat['name'] ?? '';
+                        } catch (Exception $e) {}
+                    }
+                    $itemIdStr = (string)$item['_id'];
+                ?>
                     <div class="col-lg-4 col-md-6" data-aos="fade-up">
                         <div class="glass-card h-100 position-relative">
                             <span class="item-badge badge-lost">Lost</span>
-                            <img src="<?php echo SITE_URL; ?>/uploads/<?php echo $item['image'] ?: 'default-item.png'; ?>" class="w-100" style="height: 220px; object-fit: cover;" alt="<?php echo sanitize($item['title']); ?>">
+                            <img src="<?php echo SITE_URL; ?>/uploads/<?php echo ($item['image'] ?? '') ?: 'default-item.png'; ?>" class="w-100" style="height: 220px; object-fit: cover;" alt="<?php echo sanitize($item['title'] ?? ''); ?>">
                             
                             <div class="p-4">
-                                <span class="badge bg-secondary text-secondary mb-2" style="font-size: 0.8rem;"><?php echo sanitize($item['category_name']); ?></span>
-                                <h5 class="font-heading fw-700 mb-2"><?php echo sanitize($item['title']); ?></h5>
-                                <p class="text-secondary text-truncate-2 mb-3" style="font-size: 0.9rem;"><?php echo sanitize($item['description']); ?></p>
+                                <span class="badge bg-secondary text-secondary mb-2" style="font-size: 0.8rem;"><?php echo sanitize($cat_name); ?></span>
+                                <h5 class="font-heading fw-700 mb-2"><?php echo sanitize($item['title'] ?? ''); ?></h5>
+                                <p class="text-secondary text-truncate-2 mb-3" style="font-size: 0.9rem;"><?php echo sanitize($item['description'] ?? ''); ?></p>
                                 
                                 <div class="d-flex flex-column gap-2 mb-4" style="font-size: 0.85rem; color: var(--text-muted);">
-                                    <div><i class="fa-solid fa-location-dot me-2 text-primary"></i><?php echo sanitize($item['location']); ?></div>
-                                    <div><i class="fa-regular fa-calendar me-2 text-primary"></i>Lost: <?php echo formatDate($item['lost_date']); ?></div>
-                                    <?php if ($item['reward'] > 0): ?>
+                                    <div><i class="fa-solid fa-location-dot me-2 text-primary"></i><?php echo sanitize($item['location'] ?? ''); ?></div>
+                                    <div><i class="fa-regular fa-calendar me-2 text-primary"></i>Lost: <?php echo formatDate($item['lost_date'] ?? ''); ?></div>
+                                    <?php if (($item['reward'] ?? 0) > 0): ?>
                                         <div class="fw-700 text-success"><i class="fa-solid fa-hand-holding-dollar me-2"></i>Reward: $<?php echo number_format($item['reward'], 2); ?></div>
                                     <?php endif; ?>
                                 </div>
-                                <a href="<?php echo SITE_URL; ?>/lost/view.php?id=<?php echo $item['id']; ?>" class="btn btn-premium w-100">View Details & Contact</a>
+                                <a href="<?php echo SITE_URL; ?>/lost/view.php?id=<?php echo $itemIdStr; ?>" class="btn btn-premium w-100">View Details & Contact</a>
                             </div>
                         </div>
                     </div>
@@ -204,22 +213,31 @@ require_once 'includes/navbar.php';
                     </div>
                 </div>
             <?php else: ?>
-                <?php foreach ($latest_found as $item): ?>
+                <?php foreach ($latest_found as $item): 
+                    $cat_name = $item['category_name'] ?? '';
+                    if (empty($cat_name) && !empty($item['category_id'])) {
+                        try {
+                            $cat = $db->findOne('categories', ['_id' => new MongoDB\BSON\ObjectId($item['category_id'])]);
+                            $cat_name = $cat['name'] ?? '';
+                        } catch (Exception $e) {}
+                    }
+                    $itemIdStr = (string)$item['_id'];
+                ?>
                     <div class="col-lg-4 col-md-6" data-aos="fade-up">
                         <div class="glass-card h-100 position-relative">
                             <span class="item-badge badge-found">Found</span>
-                            <img src="<?php echo SITE_URL; ?>/uploads/<?php echo $item['image'] ?: 'default-item.png'; ?>" class="w-100" style="height: 220px; object-fit: cover;" alt="<?php echo sanitize($item['title']); ?>">
+                            <img src="<?php echo SITE_URL; ?>/uploads/<?php echo ($item['image'] ?? '') ?: 'default-item.png'; ?>" class="w-100" style="height: 220px; object-fit: cover;" alt="<?php echo sanitize($item['title'] ?? ''); ?>">
                             
                             <div class="p-4">
-                                <span class="badge bg-secondary text-secondary mb-2" style="font-size: 0.8rem;"><?php echo sanitize($item['category_name']); ?></span>
-                                <h5 class="font-heading fw-700 mb-2"><?php echo sanitize($item['title']); ?></h5>
-                                <p class="text-secondary text-truncate-2 mb-3" style="font-size: 0.9rem;"><?php echo sanitize($item['description']); ?></p>
+                                <span class="badge bg-secondary text-secondary mb-2" style="font-size: 0.8rem;"><?php echo sanitize($cat_name); ?></span>
+                                <h5 class="font-heading fw-700 mb-2"><?php echo sanitize($item['title'] ?? ''); ?></h5>
+                                <p class="text-secondary text-truncate-2 mb-3" style="font-size: 0.9rem;"><?php echo sanitize($item['description'] ?? ''); ?></p>
                                 
                                 <div class="d-flex flex-column gap-2 mb-4" style="font-size: 0.85rem; color: var(--text-muted);">
-                                    <div><i class="fa-solid fa-location-dot me-2 text-success"></i><?php echo sanitize($item['location']); ?></div>
-                                    <div><i class="fa-regular fa-calendar me-2 text-success"></i>Found: <?php echo formatDate($item['found_date']); ?></div>
+                                    <div><i class="fa-solid fa-location-dot me-2 text-success"></i><?php echo sanitize($item['location'] ?? ''); ?></div>
+                                    <div><i class="fa-regular fa-calendar me-2 text-success"></i>Found: <?php echo formatDate($item['found_date'] ?? ''); ?></div>
                                 </div>
-                                <a href="<?php echo SITE_URL; ?>/found/view.php?id=<?php echo $item['id']; ?>" class="btn btn-premium w-100">View Details & Claim</a>
+                                <a href="<?php echo SITE_URL; ?>/found/view.php?id=<?php echo $itemIdStr; ?>" class="btn btn-premium w-100">View Details & Claim</a>
                             </div>
                         </div>
                     </div>

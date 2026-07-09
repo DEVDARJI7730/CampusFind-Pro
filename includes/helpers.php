@@ -12,8 +12,8 @@ if (session_status() === PHP_SESSION_NONE) {
 /**
  * Sanitize user input to prevent XSS attacks
  */
-function sanitize(string $data): string {
-    return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
+function sanitize(?string $data): string {
+    return htmlspecialchars(trim($data ?? ''), ENT_QUOTES, 'UTF-8');
 }
 
 /**
@@ -91,17 +91,18 @@ function generateQRToken(): string {
 /**
  * Log user/system activity into DB
  */
-function logActivity(?int $userId, string $action, string $description): bool {
+function logActivity($userId, string $action, string $description): bool {
     try {
-        $db = Database::getInstance()->getConnection();
+        $db = Database::getInstance();
         $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-        $stmt = $db->prepare("INSERT INTO activity_logs (user_id, action, description, ip_address) VALUES (:user_id, :action, :description, :ip)");
-        return $stmt->execute([
-            ':user_id' => $userId,
-            ':action' => $action,
-            ':description' => $description,
-            ':ip' => $ip
+        $db->insert('activity_logs', [
+            'user_id' => $userId ? (string)$userId : null,
+            'action' => $action,
+            'description' => $description,
+            'ip_address' => $ip,
+            'created_at' => date('Y-m-d H:i:s')
         ]);
+        return true;
     } catch (Exception $e) {
         // Fallback silently to prevent blocking runtime if DB fails
         error_log("Activity logging failed: " . $e->getMessage());
@@ -112,15 +113,17 @@ function logActivity(?int $userId, string $action, string $description): bool {
 /**
  * Add a notification to a specific user
  */
-function addNotification(int $userId, string $title, string $message): bool {
+function addNotification($userId, string $title, string $message): bool {
     try {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("INSERT INTO notifications (user_id, title, message) VALUES (:user_id, :title, :message)");
-        return $stmt->execute([
-            ':user_id' => $userId,
-            ':title' => $title,
-            ':message' => $message
+        $db = Database::getInstance();
+        $db->insert('notifications', [
+            'user_id' => (string)$userId,
+            'title' => $title,
+            'message' => $message,
+            'status' => 'unread',
+            'created_at' => date('Y-m-d H:i:s')
         ]);
+        return true;
     } catch (Exception $e) {
         error_log("Failed to create notification: " . $e->getMessage());
         return false;
