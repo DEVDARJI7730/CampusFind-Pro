@@ -13,17 +13,19 @@ $admin_id = $_SESSION['user_id'];
 $reports_history = [];
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
-    // Fetch generated reports log history joining user
-    $reports_stmt = $db->query("
-        SELECT r.*, u.name as admin_name 
-        FROM reports r 
-        JOIN users u ON r.admin_id = u.id 
-        ORDER BY r.created_at DESC 
-        LIMIT 10
-    ");
-    $reports_history = $reports_stmt->fetchAll();
+    // Fetch generated reports log history
+    $reports_raw = $db->find('reports', [], ['sort' => ['created_at' => -1], 'limit' => 10]);
+    $reports_history = [];
+    foreach ($reports_raw as $report) {
+        $user = null;
+        try {
+            $user = $db->findOne('users', ['_id' => new MongoDB\BSON\ObjectId($report['admin_id'])]);
+        } catch (Exception $e) {}
+        $report['admin_name'] = $user['name'] ?? 'System';
+        $reports_history[] = $report;
+    }
 } catch (Exception $e) {
     error_log("Reports history fetch failure: " . $e->getMessage());
 }

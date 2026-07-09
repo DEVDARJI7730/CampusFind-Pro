@@ -78,10 +78,11 @@ $csrf_token = generateCSRFToken();
                     // Count unread notifications
                     $unread_count = 0;
                     try {
-                        $db = Database::getInstance()->getConnection();
-                        $notif_stmt = $db->prepare("SELECT COUNT(*) as cnt FROM notifications WHERE user_id = :uid AND is_read = 0");
-                        $notif_stmt->execute([':uid' => $_SESSION['user_id']]);
-                        $unread_count = (int)$notif_stmt->fetch()['cnt'];
+                        $db = Database::getInstance();
+                        $unread_count = $db->count('notifications', [
+                            'user_id' => (string)$_SESSION['user_id'],
+                            'status' => 'unread'
+                        ]);
                     } catch (Exception $e) {}
                     ?>
                     <a href="<?php echo SITE_URL; ?>/notifications/list.php" class="position-relative p-2 text-secondary" title="Notifications">

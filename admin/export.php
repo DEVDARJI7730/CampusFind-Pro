@@ -19,7 +19,7 @@ if (!in_array($scope, ['lost_items', 'found_items', 'claims', 'users']) || !in_a
 }
 
 try {
-    $db = Database::getInstance()->getConnection();
+    $db = Database::getInstance();
     
     // 1. Fetch relevant data
     $data = [];
@@ -29,49 +29,90 @@ try {
     if ($scope === 'lost_items') {
         $title = 'Active Lost Items Registry';
         $headers = ['ID', 'Title', 'Category', 'Reporter Name', 'Location', 'Lost Date', 'Reward ($)', 'Status', 'Registered On'];
-        $stmt = $db->query("
-            SELECT l.id, l.title, c.name as category, u.name as reporter, l.location, l.lost_date, l.reward, l.status, l.created_at
-            FROM lost_items l
-            JOIN categories c ON l.category_id = c.id
-            JOIN users u ON l.user_id = u.id
-            ORDER BY l.created_at DESC
-        ");
-        $data = $stmt->fetchAll();
+        $items = $db->find('lost_items', [], ['sort' => ['created_at' => -1]]);
+        foreach ($items as $item) {
+            $user = null;
+            try {
+                $user = $db->findOne('users', ['_id' => new MongoDB\BSON\ObjectId($item['user_id'])]);
+            } catch (Exception $e) {}
+            $data[] = [
+                'id' => (string)$item['_id'],
+                'title' => $item['title'] ?? '',
+                'category' => $item['category_name'] ?? '',
+                'reporter' => $user['name'] ?? 'Unknown',
+                'location' => $item['location'] ?? '',
+                'lost_date' => $item['lost_date'] ?? '',
+                'reward' => $item['reward'] ?? 0.00,
+                'status' => $item['status'] ?? '',
+                'created_at' => $item['created_at'] ?? ''
+            ];
+        }
     } elseif ($scope === 'found_items') {
         $title = 'Logged Found Items Registry';
         $headers = ['ID', 'Title', 'Category', 'Reporter Name', 'Location', 'Found Date', 'Status', 'Registered On'];
-        $stmt = $db->query("
-            SELECT f.id, f.title, c.name as category, u.name as reporter, f.location, f.found_date, f.status, f.created_at
-            FROM found_items f
-            JOIN categories c ON f.category_id = c.id
-            JOIN users u ON f.user_id = u.id
-            ORDER BY f.created_at DESC
-        ");
-        $data = $stmt->fetchAll();
+        $items = $db->find('found_items', [], ['sort' => ['created_at' => -1]]);
+        foreach ($items as $item) {
+            $user = null;
+            try {
+                $user = $db->findOne('users', ['_id' => new MongoDB\BSON\ObjectId($item['user_id'])]);
+            } catch (Exception $e) {}
+            $data[] = [
+                'id' => (string)$item['_id'],
+                'title' => $item['title'] ?? '',
+                'category' => $item['category_name'] ?? '',
+                'reporter' => $user['name'] ?? 'Unknown',
+                'location' => $item['location'] ?? '',
+                'found_date' => $item['found_date'] ?? '',
+                'status' => $item['status'] ?? '',
+                'created_at' => $item['created_at'] ?? ''
+            ];
+        }
     } elseif ($scope === 'claims') {
         $title = 'Claim Request Auditing Logs';
         $headers = ['ID', 'Registry Type', 'Item Name', 'Claimer Student', 'Claim Date', 'Status', 'Admin Notes', 'Processed Date'];
-        $stmt = $db->query("
-            SELECT c.id, c.item_type, 
-            CASE WHEN c.item_type = 'found' THEN f.title ELSE l.title END as item_title,
-            u.name as claimer, c.created_at, c.status, c.admin_notes, c.processed_at
-            FROM claims c
-            JOIN users u ON c.claimer_id = u.id
-            LEFT JOIN found_items f ON c.item_id = f.id AND c.item_type = 'found'
-            LEFT JOIN lost_items l ON c.item_id = l.id AND c.item_type = 'lost'
-            ORDER BY c.created_at DESC
-        ");
-        $data = $stmt->fetchAll();
+        $claims = $db->find('claims', [], ['sort' => ['created_at' => -1]]);
+        foreach ($claims as $claim) {
+            $user = null;
+            try {
+                $user = $db->findOne('users', ['_id' => new MongoDB\BSON\ObjectId($claim['claimer_id'])]);
+            } catch (Exception $e) {}
+            
+            $item = null;
+            try {
+                if ($claim['item_type'] === 'found') {
+                    $item = $db->findOne('found_items', ['_id' => new MongoDB\BSON\ObjectId($claim['item_id'])]);
+                } else {
+                    $item = $db->findOne('lost_items', ['_id' => new MongoDB\BSON\ObjectId($claim['item_id'])]);
+                }
+            } catch (Exception $e) {}
+
+            $data[] = [
+                'id' => (string)$claim['_id'],
+                'item_type' => $claim['item_type'] ?? '',
+                'item_title' => $item['title'] ?? 'Unknown Item',
+                'claimer' => $user['name'] ?? 'Unknown',
+                'created_at' => $claim['created_at'] ?? '',
+                'status' => $claim['status'] ?? '',
+                'admin_notes' => $claim['admin_notes'] ?? '',
+                'processed_at' => $claim['processed_at'] ?? 'N/A'
+            ];
+        }
     } else {
         $title = 'Registered Campus Students Registry';
         $headers = ['ID', 'Student ID', 'Full Name', 'Email Address', 'Phone Number', 'Status', 'Email Verified', 'Created Date'];
-        $stmt = $db->query("
-            SELECT id, student_id, name, email, phone, status, is_verified, created_at 
-            FROM users 
-            WHERE role = 'student' 
-            ORDER BY created_at DESC
-        ");
-        $data = $stmt->fetchAll();
+        $users = $db->find('users', ['role' => 'student'], ['sort' => ['created_at' => -1]]);
+        foreach ($users as $u) {
+            $data[] = [
+                'id' => (string)$u['_id'],
+                'student_id' => $u['student_id'] ?? '',
+                'name' => $u['name'] ?? '',
+                'email' => $u['email'] ?? '',
+                'phone' => $u['phone'] ?? 'N/A',
+                'status' => $u['status'] ?? '',
+                'is_verified' => ($u['is_verified'] ?? 0) ? 'Yes' : 'No',
+                'created_at' => $u['created_at'] ?? ''
+            ];
+        }
     }
 
     // 2. Archive Snapshot File on Disk (Static reporting snapshot)
@@ -150,15 +191,12 @@ try {
 
     // Save report generation event in history log table
     $db_format = ($format === 'excel') ? 'xlsx' : 'pdf';
-    $save_report = $db->prepare("
-        INSERT INTO reports (admin_id, report_type, format, file_path) 
-        VALUES (:admin, :type, :format, :path)
-    ");
-    $save_report->execute([
-        ':admin' => $admin_id,
-        ':type' => $scope,
-        ':format' => $db_format,
-        ':path' => $relative_path
+    $db->insert('reports', [
+        'admin_id' => $admin_id,
+        'report_type' => $scope,
+        'format' => $db_format,
+        'file_path' => $relative_path,
+        'created_at' => date('Y-m-d H:i:s')
     ]);
 
     logActivity($admin_id, 'GENERATE_REPORT', 'Generated export audit report: ' . $title);
