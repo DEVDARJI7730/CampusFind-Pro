@@ -86,15 +86,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     addNotification($user_id, 'Welcome to CampusFind Pro', "Hello $name, welcome to the platform! Start logging lost or found items instantly.");
 
                     if ($req_verif === '1') {
-                        // Simulate email notification
-                        // Save simulated email to temporary file in uploads/mock_emails.log
-                        $mock_email_dir = UPLOAD_PATH;
-                        if (!is_dir($mock_email_dir)) {
-                            mkdir($mock_email_dir, 0777, true);
-                        }
-                        $mock_email_file = $mock_email_dir . '/mock_emails.log';
-                        $email_content = "[" . date('Y-m-d H:i:s') . "] To: $email\nSubject: CampusFind Pro Email Verification\nCode: $verification_code\n---------------------------------\n";
-                        file_put_contents($mock_email_file, $email_content, FILE_APPEND);
+                        // Dispatch verification email notification
+                        $subject = 'CampusFind Pro Email Verification';
+                        $messageHtml = "
+                            <div style='font-family: Arial, sans-serif; line-height: 1.6; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;'>
+                                <h2 style='color: #4f46e5; margin-bottom: 20px; font-weight: 800;'>Welcome to CampusFind Pro!</h2>
+                                <p style='color: #475569;'>Thank you for registering on our lost & found portal.</p>
+                                <p style='color: #475569;'>Your OTP verification code is:</p>
+                                <div style='background: #f1f5f9; padding: 12px 20px; border-radius: 8px; display: inline-block; letter-spacing: 2px; font-size: 1.6rem; font-weight: bold; color: #4f46e5; margin: 10px 0;'>$verification_code</div>
+                                <p style='color: #475569;'>Please enter this code in the portal to verify your account.</p>
+                                <hr style='border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;'>
+                                <p style='font-size: 0.8rem; color: #64748b; line-height: 1.4;'>If you did not register for an account, you can safely ignore this email.</p>
+                            </div>
+                        ";
+                        sendSystemEmail($email, $subject, $messageHtml);
 
                         $_SESSION['verify_email'] = $email;
                         redirect('auth/verify.php');

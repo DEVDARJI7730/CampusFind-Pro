@@ -126,3 +126,45 @@ function addNotification(int $userId, string $title, string $message): bool {
         return false;
     }
 }
+
+/**
+ * Sends a system email utilizing SMTP configurations, falling back to local files if keys are absent or fail.
+ */
+function sendSystemEmail(string $to, string $subject, string $messageHtml): bool {
+    // If SMTP credentials are not configured, fallback directly to mock logging
+    if (empty(SMTP_USER) || empty(SMTP_PASS)) {
+        return writeToMockEmailLog($to, $subject, $messageHtml, "No SMTP credentials configured");
+    }
+
+    try {
+        require_once __DIR__ . '/mail.php';
+        $mailer = new SimpleSMTP(SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE);
+        return $mailer->send($to, $subject, $messageHtml);
+    } catch (Exception $e) {
+        error_log("SMTP dispatch failed: " . $e->getMessage());
+        // Fallback to mock log so system doesn't crash during network/credential failures
+        return writeToMockEmailLog($to, $subject, $messageHtml, "SMTP Failure: " . $e->getMessage());
+    }
+}
+
+/**
+ * Utility helper to append mock emails to uploads/mock_emails.log
+ */
+function writeToMockEmailLog(string $to, string $subject, string $messageHtml, string $reason): bool {
+    $mock_email_dir = UPLOAD_PATH;
+    if (!is_dir($mock_email_dir)) {
+        @mkdir($mock_email_dir, 0777, true);
+    }
+    $mock_email_file = $mock_email_dir . '/mock_emails.log';
+    
+    // Strip HTML tags for clean log file viewing
+    $plainText = strip_tags(str_replace(['<br>', '<br/>', '</p>'], "\n", $messageHtml));
+    
+    $email_content = "[" . date('Y-m-d H:i:s') . "] [FALLBACK REASON: $reason]\n";
+    $email_content .= "To: $to\n";
+    $email_content .= "Subject: $subject\n";
+    $email_content .= "Body:\n$plainText\n";
+    $email_content .= "---------------------------------\n\n";
+    
+    return @file_put_contents($mock_email_file, $email_content, FILE_APPEND) !== false;
+}

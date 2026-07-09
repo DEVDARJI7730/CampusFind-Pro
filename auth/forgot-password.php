@@ -74,21 +74,29 @@ if (empty($token) && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update_stmt = $db->prepare("UPDATE users SET verification_code = :token WHERE id = :uid");
                 $update_stmt->execute([':token' => $reset_token, ':uid' => $user['id']]);
 
-                // Simulate Email Notification
+                // Dispatch password reset email
                 $reset_link = SITE_URL . '/auth/forgot-password.php?token=' . $reset_token;
-                
-                $mock_email_dir = UPLOAD_PATH;
-                if (!is_dir($mock_email_dir)) {
-                    mkdir($mock_email_dir, 0777, true);
-                }
-                $mock_email_file = $mock_email_dir . '/mock_emails.log';
-                $email_content = "[" . date('Y-m-d H:i:s') . "] To: $email\nSubject: CampusFind Pro Password Reset Link\nLink: $reset_link\n---------------------------------\n";
-                file_put_contents($mock_email_file, $email_content, FILE_APPEND);
+                $subject = 'CampusFind Pro Password Reset Link';
+                $messageHtml = "
+                    <div style='font-family: Arial, sans-serif; line-height: 1.6; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;'>
+                        <h2 style='color: #4f46e5; margin-bottom: 20px; font-weight: 800;'>Reset Your Password</h2>
+                        <p style='color: #475569;'>You are receiving this email because you requested a password reset for your CampusFind Pro account.</p>
+                        <p style='color: #475569;'>Click the button below to secure a new password:</p>
+                        <div style='text-align: center; margin: 25px 0;'>
+                            <a href='$reset_link' style='background: #4f46e5; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; display: inline-block;'>Reset Password</a>
+                        </div>
+                        <p style='color: #475569;'>If the button doesn't work, copy and paste this URL into your browser:</p>
+                        <p style='word-break: break-all; font-size: 0.9rem;'><a href='$reset_link'>$reset_link</a></p>
+                        <hr style='border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;'>
+                        <p style='font-size: 0.8rem; color: #64748b; line-height: 1.4;'>If you did not request a password reset, you can safely ignore this email.</p>
+                    </div>
+                ";
+                sendSystemEmail($email, $subject, $messageHtml);
 
-                $success = 'A password reset link has been generated. Check `uploads/mock_emails.log` to access it.';
+                $success = 'A password reset link has been dispatched to your email address.';
             } else {
                 // To mitigate user enumeration, we still show the success message
-                $success = 'A password reset link has been generated. Check `uploads/mock_emails.log` to access it.';
+                $success = 'A password reset link has been dispatched to your email address.';
             }
         } catch (Exception $e) {
             error_log("Forgot password fail: " . $e->getMessage());
