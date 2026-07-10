@@ -18,9 +18,9 @@
                     The premium Lost & Found Management Software designed for academic institutions to connect students, streamline claim processing, and safeguard campus belongings.
                 </p>
                 <div class="d-flex gap-3">
-                    <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="Twitter"><i class="fa-brands fa-twitter"></i></a>
-                    <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
-                    <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+                    <a href="https://x.com/DevDarji80404" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="Twitter"><i class="fa-brands fa-twitter"></i></a>
+                    <a href="https://github.com/DEVDARJI7730" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+                    <a href="https://www.linkedin.com/in/dev-darji-65836b318/" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary rounded-circle" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
                 </div>
             </div>
 
