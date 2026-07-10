@@ -74,9 +74,31 @@ class Database {
     }
 
     /**
+     * Helper to recursively scan filter queries and cast 24-character hexadecimal ID string fields into BSON ObjectIds
+     */
+    private function castFilterIds(array $filter, string $parentKey = ''): array {
+        foreach ($filter as $key => $value) {
+            $currentKey = (is_string($key) && substr($key, 0, 1) !== '$') ? $key : $parentKey;
+            if (is_array($value)) {
+                $filter[$key] = $this->castFilterIds($value, $currentKey);
+            } elseif (is_string($value) && strlen($value) === 24 && ctype_xdigit($value)) {
+                if ($currentKey === '_id' || substr($currentKey, -3) === '_id' || $currentKey === 'claimer_id' || $currentKey === 'item_id') {
+                    try {
+                        $filter[$key] = new MongoDB\BSON\ObjectId($value);
+                    } catch (Exception $e) {
+                        // Keep original string if ObjectId conversion fails
+                    }
+                }
+            }
+        }
+        return $filter;
+    }
+
+    /**
      * Query documents from a collection
      */
     public function find(string $collection, array $filter = [], array $options = []): array {
+        $filter = $this->castFilterIds($filter);
         $query = new MongoDB\Driver\Query($filter, $options);
         $namespace = $this->dbName . '.' . $collection;
         $cursor = $this->manager->executeQuery($namespace, $query);
@@ -115,6 +137,7 @@ class Database {
      * Updates documents matching the filter criteria
      */
     public function update(string $collection, array $filter, array $updateData, bool $multi = false): int {
+        $filter = $this->castFilterIds($filter);
         $bulk = new MongoDB\Driver\BulkWrite();
         
         // Auto-wrap under $set operator if keys are not already update operators
@@ -133,6 +156,7 @@ class Database {
      * Deletes documents matching the filter criteria
      */
     public function delete(string $collection, array $filter, bool $limit = false): int {
+        $filter = $this->castFilterIds($filter);
         $bulk = new MongoDB\Driver\BulkWrite();
         $bulk->delete($filter, ['limit' => $limit ? 1 : 0]);
         $namespace = $this->dbName . '.' . $collection;
@@ -144,6 +168,7 @@ class Database {
      * Counts documents matching the filter criteria
      */
     public function count(string $collection, array $filter = []): int {
+        $filter = $this->castFilterIds($filter);
         $command = new MongoDB\Driver\Command([
             'count' => $collection,
             'query' => empty($filter) ? (object)[] : $filter
