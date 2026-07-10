@@ -69,7 +69,7 @@ if (empty($token) && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->update('users', ['_id' => $user['_id']], ['verification_code' => $reset_token]);
 
                 // Dispatch password reset email
-                $reset_link = SITE_URL . '/auth/forgot-password.php?token=' . $reset_token;
+                $reset_link = (defined('PRODUCTION_URL') && !empty(PRODUCTION_URL) ? PRODUCTION_URL : SITE_URL) . '/auth/forgot-password.php?token=' . $reset_token;
                 $subject = 'CampusFind Pro Password Reset Link';
                 $messageHtml = "
                     <div style='font-family: Arial, sans-serif; line-height: 1.6; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;'>

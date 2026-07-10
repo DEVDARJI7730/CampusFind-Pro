@@ -30,6 +30,7 @@ if (file_exists($envFile)) {
 // Core App Settings
 define('APP_NAME', 'CampusFind Pro');
 define('APP_VERSION', '1.0.0');
+define('PRODUCTION_URL', 'https://campusfind-pro.onrender.com');
 
 // Base URL (Dynamically detects subdirectories like XAMPP /CampusFind-Pro/ or cloud root domains, supports CLI execution)
 if (php_sapi_name() === 'cli') {
