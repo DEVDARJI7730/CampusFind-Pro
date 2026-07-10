@@ -77,9 +77,9 @@ CampusFind Pro is a premium, modern, and secure lost-and-found portal designed s
    - **Default Admin Password:** `admin123` *(**IMPORTANT:** Change this password immediately upon your first login for production security!)*
 
 4. **Run the Project:**
-   Open your browser and navigate to:
+   Open your browser and navigate to the live deployment link:
    ```url
-   http://localhost/CampusFind-Pro/
+   https://campusfind-pro.onrender.com/
    ```
 
 ---
