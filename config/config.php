@@ -69,10 +69,10 @@ define('GOOGLE_REDIRECT_URI', SITE_URL . '/auth/google-callback.php');
 
 // SMTP Server Configuration (for real email notifications)
 define('SMTP_HOST', getenv('SMTP_HOST') ?: 'smtp.gmail.com');
-define('SMTP_PORT', getenv('SMTP_PORT') ?: 587);
+define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
 define('SMTP_USER', getenv('SMTP_USER') ?: 'YOUR_EMAIL_ADDRESS');
 define('SMTP_PASS', getenv('SMTP_PASS') ?: 'YOUR_APP_PASSWORD');
-define('SMTP_SECURE', getenv('SMTP_SECURE') ?: 'tls'); // 'tls' or 'ssl'
+define('SMTP_SECURE', getenv('SMTP_SECURE') ?: 'ssl'); // 'tls' or 'ssl'
 
 // Image Configuration
 define('MAX_IMAGE_SIZE', 5 * 1024 * 1024); // 5 MB
