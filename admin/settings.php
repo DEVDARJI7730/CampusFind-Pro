@@ -23,6 +23,27 @@ try {
         if (!validateCSRFToken($csrf)) {
             $msg = 'Invalid security token.';
             $msg_class = 'danger';
+        } elseif (isset($_POST['update_security'])) {
+            $email = filter_var($_POST['admin_email'] ?? '', FILTER_VALIDATE_EMAIL);
+            $new_password = $_POST['new_password'] ?? '';
+            $confirm_password = $_POST['confirm_password'] ?? '';
+            
+            if (!$email) {
+                $msg = 'Please enter a valid administrator email.';
+                $msg_class = 'danger';
+            } elseif (strlen($new_password) < 8) {
+                $msg = 'Password must be at least 8 characters long.';
+                $msg_class = 'danger';
+            } elseif ($new_password !== $confirm_password) {
+                $msg = 'Passwords do not match.';
+                $msg_class = 'danger';
+            } else {
+                $new_hash = password_hash($new_password, PASSWORD_BCRYPT);
+                $db->update('users', ['_id' => $admin_id], ['email' => $email, 'password' => $new_hash]);
+                logActivity($admin_id, 'ADMIN_SECURITY_UPDATE', 'Admin updated login credentials.');
+                $msg = 'Administrator credentials updated successfully. Please use these next time you sign in.';
+                $msg_class = 'success';
+            }
         } else {
             // Retrieve key-value pairs
             $settings_to_update = [
@@ -62,6 +83,10 @@ try {
     foreach ($settings_raw as $set) {
         $config_settings[$set['setting_key']] = $set['setting_value'];
     }
+
+    // Fetch current admin profile info
+    $admin_user = $db->findOne('users', ['_id' => $admin_id]);
+    $admin_email = $admin_user['email'] ?? 'admin@campusfindpro.edu';
 
 } catch (Exception $e) {
     error_log("Settings query failure: " . $e->getMessage());
@@ -158,6 +183,36 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
 
                     <!-- Submit -->
                     <button type="submit" class="btn btn-premium px-5 py-3 mt-3"><i class="fa-regular fa-floppy-disk me-2"></i>Save Configuration</button>
+                </form>
+            </div>
+
+            <div class="glass-panel p-4 p-md-5 mt-4">
+                <h5 class="font-heading fw-700 mb-4 text-primary"><i class="fa-solid fa-shield-halved me-2"></i>Admin Login Credentials</h5>
+                <form action="settings.php" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                    <input type="hidden" name="update_security" value="1">
+
+                    <!-- Admin Email -->
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-500">Administrator Sign-In Email</label>
+                        <input type="email" name="admin_email" class="form-control form-premium-control" value="<?php echo sanitize($admin_email); ?>" required>
+                        <div class="form-text text-muted" style="font-size: 0.8rem;">Change this email to a mailbox you own to receive real system alerts and password reset notifications.</div>
+                    </div>
+
+                    <!-- New Password -->
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-500">New Password</label>
+                        <input type="password" name="new_password" class="form-control form-premium-control" placeholder="At least 8 characters" required>
+                    </div>
+
+                    <!-- Confirm Password -->
+                    <div class="mb-4">
+                        <label class="form-label text-secondary fw-500">Confirm Password</label>
+                        <input type="password" name="confirm_password" class="form-control form-premium-control" placeholder="Retype password" required>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="btn btn-premium px-5 py-3 mt-2"><i class="fa-solid fa-key me-2"></i>Update Admin Credentials</button>
                 </form>
             </div>
         </div>
