@@ -79,6 +79,11 @@ define('SMTP_SECURE', getenv('SMTP_SECURE') ?: 'ssl'); // 'tls' or 'ssl'
 define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: 'YOUR_RESEND_API_KEY');
 define('RESEND_FROM_EMAIL', getenv('RESEND_FROM_EMAIL') ?: 'onboarding@resend.dev');
 
+// Brevo.com API Configuration (for HTTP-based email sending to any friend/address)
+define('BREVO_API_KEY', getenv('BREVO_API_KEY') ?: 'YOUR_BREVO_API_KEY');
+define('BREVO_SENDER_EMAIL', getenv('BREVO_SENDER_EMAIL') ?: 'darjidev2504@gmail.com');
+define('BREVO_SENDER_NAME', getenv('BREVO_SENDER_NAME') ?: 'CampusFind Pro');
+
 // Image Configuration
 define('MAX_IMAGE_SIZE', 5 * 1024 * 1024); // 5 MB
 $ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
