@@ -369,10 +369,38 @@ function handleContactSubmit(event) {
     const name = document.getElementById('contactName').value;
     const email = document.getElementById('contactEmail').value;
     const message = document.getElementById('contactMessage').value;
+    const submitBtn = event.target.querySelector('button[type="submit"]');
 
-    // Simulate AJAX contact form post
-    Toast.show("Thank you " + name + "! Your support message was received.", "success");
-    document.getElementById('contactForm').reset();
+    // Disable button and show spinner
+    const originalBtnHTML = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Sending...';
+
+    fetch('api/contact.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, email, message })
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHTML;
+        
+        if (data.success) {
+            Toast.show("Thank you " + name + "! Your support message was saved successfully.", "success");
+            document.getElementById('contactForm').reset();
+        } else {
+            Toast.show(data.message || "Failed to send message.", "danger");
+        }
+    })
+    .catch(error => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHTML;
+        console.error('Error submitting inquiry:', error);
+        Toast.show("Network error. Please try again later.", "danger");
+    });
 }
 </script>
 
