@@ -74,6 +74,10 @@ define('SMTP_USER', getenv('SMTP_USER') ?: 'YOUR_EMAIL_ADDRESS');
 define('SMTP_PASS', getenv('SMTP_PASS') ?: 'YOUR_APP_PASSWORD');
 define('SMTP_SECURE', getenv('SMTP_SECURE') ?: 'ssl'); // 'tls' or 'ssl'
 
+// Resend.com API Configuration (for HTTP-based email sending on cloud environments)
+define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: 'YOUR_RESEND_API_KEY');
+define('RESEND_FROM_EMAIL', getenv('RESEND_FROM_EMAIL') ?: 'onboarding@resend.dev');
+
 // Image Configuration
 define('MAX_IMAGE_SIZE', 5 * 1024 * 1024); // 5 MB
 $ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];

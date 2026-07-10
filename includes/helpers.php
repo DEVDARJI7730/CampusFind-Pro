@@ -147,8 +147,43 @@ function addNotification($userId, string $title, string $message): bool {
  * Sends a system email utilizing SMTP configurations, falling back to local files if keys are absent or fail.
  */
 function sendSystemEmail(string $to, string $subject, string $messageHtml): bool {
-    // If SMTP credentials are not configured, fallback directly to mock logging
-    if (empty(SMTP_USER) || empty(SMTP_PASS)) {
+    // 1. If Resend.com API Key is configured, use Resend's HTTP REST API (never blocked on Render)
+    $resendApiKey = getenv('RESEND_API_KEY') ?: (defined('RESEND_API_KEY') ? RESEND_API_KEY : '');
+    if (!empty($resendApiKey) && $resendApiKey !== 'YOUR_RESEND_API_KEY') {
+        try {
+            $fromEmail = getenv('RESEND_FROM_EMAIL') ?: (defined('RESEND_FROM_EMAIL') ? RESEND_FROM_EMAIL : 'onboarding@resend.dev');
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://api.resend.com/emails');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                'from' => 'CampusFind Pro <' . $fromEmail . '>',
+                'to' => [$to],
+                'subject' => $subject,
+                'html' => $messageHtml
+            ]));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $resendApiKey,
+                'Content-Type: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($http_code === 200 || $http_code === 201) {
+                return true;
+            }
+            throw new Exception("Resend API returned status $http_code. Response: $response");
+        } catch (Exception $e) {
+            error_log("Resend API dispatch failed: " . $e->getMessage());
+            return writeToMockEmailLog($to, $subject, $messageHtml, "Resend API Failure: " . $e->getMessage());
+        }
+    }
+
+    // 2. Fallback to standard SMTP Server if configured
+    if (empty(SMTP_USER) || empty(SMTP_PASS) || SMTP_USER === 'YOUR_EMAIL_ADDRESS') {
         return writeToMockEmailLog($to, $subject, $messageHtml, "No SMTP credentials configured");
     }
 
