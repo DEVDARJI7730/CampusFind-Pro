@@ -170,20 +170,29 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                         </tr>
                                     </thead>
                                     <tbody style="font-size: 0.9rem;">
-                                        <?php foreach ($my_lost_items as $item): ?>
+                                        <?php foreach ($my_lost_items as $item): 
+                                            $cat_name = $item['category_name'] ?? '';
+                                            if (empty($cat_name) && !empty($item['category_id'])) {
+                                                try {
+                                                    $cat = $db->findOne('categories', ['_id' => new MongoDB\BSON\ObjectId($item['category_id'])]);
+                                                    $cat_name = $cat['name'] ?? '';
+                                                } catch (Exception $e) {}
+                                            }
+                                            $itemIdStr = (string)$item['_id'];
+                                        ?>
                                             <tr>
-                                                <td class="fw-600"><?php echo sanitize($item['title']); ?></td>
-                                                <td><?php echo sanitize($item['category_name']); ?></td>
-                                                <td><?php echo formatDate($item['lost_date']); ?></td>
+                                                <td class="fw-600"><?php echo sanitize($item['title'] ?? ''); ?></td>
+                                                <td><?php echo sanitize($cat_name); ?></td>
+                                                <td><?php echo formatDate($item['lost_date'] ?? ''); ?></td>
                                                 <td>
-                                                    <span class="badge <?php echo $item['status'] === 'lost' ? 'badge-lost' : 'badge-claimed'; ?>">
-                                                        <?php echo ucfirst($item['status']); ?>
+                                                    <span class="badge <?php echo ($item['status'] ?? 'lost') === 'lost' ? 'badge-lost' : 'badge-claimed'; ?>">
+                                                        <?php echo ucfirst($item['status'] ?? 'lost'); ?>
                                                     </span>
                                                 </td>
                                                 <td class="text-end">
-                                                    <a href="<?php echo SITE_URL; ?>/lost/view.php?id=<?php echo $item['id']; ?>" class="btn btn-sm btn-outline-primary me-1"><i class="fa-solid fa-eye"></i></a>
-                                                    <a href="<?php echo SITE_URL; ?>/lost/edit.php?id=<?php echo $item['id']; ?>" class="btn btn-sm btn-outline-secondary me-1"><i class="fa-solid fa-pen"></i></a>
-                                                    <a href="<?php echo SITE_URL; ?>/lost/delete.php?id=<?php echo $item['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this report?')"><i class="fa-solid fa-trash"></i></a>
+                                                    <a href="<?php echo SITE_URL; ?>/lost/view.php?id=<?php echo $itemIdStr; ?>" class="btn btn-sm btn-outline-primary me-1"><i class="fa-solid fa-eye"></i></a>
+                                                    <a href="<?php echo SITE_URL; ?>/lost/edit.php?id=<?php echo $itemIdStr; ?>" class="btn btn-sm btn-outline-secondary me-1"><i class="fa-solid fa-pen"></i></a>
+                                                    <a href="<?php echo SITE_URL; ?>/lost/delete.php?id=<?php echo $itemIdStr; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this report?')"><i class="fa-solid fa-trash"></i></a>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -213,20 +222,29 @@ require_once dirname(__DIR__) . '/includes/navbar.php';
                                         </tr>
                                     </thead>
                                     <tbody style="font-size: 0.9rem;">
-                                        <?php foreach ($my_found_items as $item): ?>
+                                        <?php foreach ($my_found_items as $item): 
+                                            $cat_name = $item['category_name'] ?? '';
+                                            if (empty($cat_name) && !empty($item['category_id'])) {
+                                                try {
+                                                    $cat = $db->findOne('categories', ['_id' => new MongoDB\BSON\ObjectId($item['category_id'])]);
+                                                    $cat_name = $cat['name'] ?? '';
+                                                } catch (Exception $e) {}
+                                            }
+                                            $itemIdStr = (string)$item['_id'];
+                                        ?>
                                             <tr>
-                                                <td class="fw-600"><?php echo sanitize($item['title']); ?></td>
-                                                <td><?php echo sanitize($item['category_name']); ?></td>
-                                                <td><?php echo formatDate($item['found_date']); ?></td>
+                                                <td class="fw-600"><?php echo sanitize($item['title'] ?? ''); ?></td>
+                                                <td><?php echo sanitize($cat_name); ?></td>
+                                                <td><?php echo formatDate($item['found_date'] ?? ''); ?></td>
                                                 <td>
-                                                    <span class="badge <?php echo $item['status'] === 'found' ? 'badge-found' : 'badge-claimed'; ?>">
-                                                        <?php echo ucfirst($item['status']); ?>
+                                                    <span class="badge <?php echo ($item['status'] ?? 'found') === 'found' ? 'badge-found' : 'badge-claimed'; ?>">
+                                                        <?php echo ucfirst($item['status'] ?? 'found'); ?>
                                                     </span>
                                                 </td>
                                                 <td class="text-end">
-                                                    <a href="<?php echo SITE_URL; ?>/found/view.php?id=<?php echo $item['id']; ?>" class="btn btn-sm btn-outline-primary me-1"><i class="fa-solid fa-eye"></i></a>
-                                                    <a href="<?php echo SITE_URL; ?>/found/edit.php?id=<?php echo $item['id']; ?>" class="btn btn-sm btn-outline-secondary me-1"><i class="fa-solid fa-pen"></i></a>
-                                                    <a href="<?php echo SITE_URL; ?>/found/delete.php?id=<?php echo $item['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this report?')"><i class="fa-solid fa-trash"></i></a>
+                                                    <a href="<?php echo SITE_URL; ?>/found/view.php?id=<?php echo $itemIdStr; ?>" class="btn btn-sm btn-outline-primary me-1"><i class="fa-solid fa-eye"></i></a>
+                                                    <a href="<?php echo SITE_URL; ?>/found/edit.php?id=<?php echo $itemIdStr; ?>" class="btn btn-sm btn-outline-secondary me-1"><i class="fa-solid fa-pen"></i></a>
+                                                    <a href="<?php echo SITE_URL; ?>/found/delete.php?id=<?php echo $itemIdStr; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this report?')"><i class="fa-solid fa-trash"></i></a>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
