@@ -50,13 +50,13 @@
             <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
                 <h6 class="font-heading fw-700 text-uppercase text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 1px;">Campus Office</h6>
                 <p class="text-secondary mb-2" style="font-size: 0.9rem;">
-                    <i class="fa-solid fa-map-location-dot me-2 text-primary"></i> Main Security Operations, Gate 4
+                    <i class="fa-solid fa-map-location-dot me-2 text-primary"></i> Main Security Operations, Gate 4, Ahmedabad
                 </p>
                 <p class="text-secondary mb-2" style="font-size: 0.9rem;">
-                    <i class="fa-solid fa-envelope me-2 text-primary"></i> support@campusfindpro.edu
+                    <i class="fa-solid fa-envelope me-2 text-primary"></i> darjidev2504@gmail.com
                 </p>
                 <p class="text-secondary" style="font-size: 0.9rem;">
-                    <i class="fa-solid fa-phone me-2 text-primary"></i> +1 (555) 019-2834
+                    <i class="fa-solid fa-phone me-2 text-primary"></i> +91 9510473018
                 </p>
             </div>
         </div>
